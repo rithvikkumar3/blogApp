@@ -6,7 +6,7 @@ import { redisClient } from "../server.js";
 export const getAllBlogs = tryCatch(async (req, res) => {
     const { searchQuery = "", category = "" } = req.query
 
-    const cacheKey = `blogs: ${searchQuery}:${category}`;
+    const cacheKey = `blogs:${searchQuery}:${category}`;
 
     const cached = await redisClient.get(cacheKey);
 
