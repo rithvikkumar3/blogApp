@@ -1,10 +1,15 @@
+"use client"
+import Loading from '@/components/loading'
 import { Button } from '@/components/ui/button'
+import { useAppData } from '@/context/AppContext'
 import React from 'react'
 
 const Home = () => {
+  const {loading} = useAppData()
   return (
     <div>
-      <Button>Click me</Button>
+
+      {loading ? <Loading/> : <Button>Click me</Button>}
     </div>
   )
 }
