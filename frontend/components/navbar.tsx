@@ -18,7 +18,7 @@ const Navbar = () => {
 
         {/* Logo */}
         <Link
-          href={"/"}
+          href={"/blogs"}
           className="text-2xl font-bold tracking-tight text-gray-900 hover:opacity-80 transition"
         >
           The Daily Fold
@@ -28,7 +28,7 @@ const Navbar = () => {
         <ul className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-700">
           <li>
             <Link
-              href={"/"}
+              href={"/blogs"}
               className="relative hover:text-black transition"
             >
               Home

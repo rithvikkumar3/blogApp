@@ -11,7 +11,7 @@ dotenv.config();
 const app = express();
 
 app.use(express.json())
-app.use(cors)
+app.use(cors())
 
 // ✅ Always fallback
 const port = process.env.PORT || 3001;
@@ -46,7 +46,6 @@ redisClient.connect().catch((err) => {
 });
 // ------------------------------------------------
 
-app.use(express.json());
 app.use("/api/v1", blogRoutes);
 
 app.listen(port, () => {

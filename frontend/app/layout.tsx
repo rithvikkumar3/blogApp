@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/navbar";
 import { AppProvider } from "@/context/AppContext";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 
 
@@ -20,7 +21,7 @@ export default function RootLayout({
       <body>
         <AppProvider>
           <Navbar />
-          {children}
+          <SidebarProvider>{children}</SidebarProvider>
         </AppProvider>
 
       </body>

@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { FcGoogle } from "react-icons/fc";
-import { useAppData, user_service } from "@/context/AppContext";
+import { useAppData, User, user_service } from "@/context/AppContext";
 import toast from "react-hot-toast";
 import {useGoogleLogin} from '@react-oauth/google'
 import axios from "axios"
@@ -22,13 +22,19 @@ const LoginPage = () => {
   const {isAuth, setIsAuth, loading, setLoading, setUser} = useAppData()
 
   if(isAuth){
-    return redirect("/")
+    return redirect("/blogs")
   }
   
+  interface LoginResponse {
+  message: string
+  token: string
+  user: User
+}
+
   const responseGoogle = async(authResult: any) =>{
     setLoading(true)
     try {
-      const result = await axios.post(`${user_service}/api/v1/login`,{
+      const result = await axios.post<LoginResponse>(`${user_service}/api/v1/login`,{
         code: authResult["code"]
       })
       Cookies.set("token", result.data.token,{
@@ -56,7 +62,7 @@ const LoginPage = () => {
     <>
     {
       loading ? <Loading/> : 
-          <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
+          <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-50 to-gray-100 px-4">
       <Card className="w-full max-w-md border border-gray-200 shadow-xl rounded-2xl">
         <CardHeader className="text-center space-y-3 pb-6">
           <CardTitle className="text-3xl font-bold tracking-tight text-gray-900">
