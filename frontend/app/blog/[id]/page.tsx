@@ -1,184 +1,341 @@
 "use client"
 
-import { Blog, User, blog_service, useAppData } from '@/context/AppContext'
-import { useParams, useRouter } from 'next/navigation'
-import React, { useEffect, useState } from 'react'
-import axios from 'axios'
-import Loading from '@/components/loading'
-import Link from 'next/link'
-import { Calendar, Bookmark, Pencil, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Blog, User, author_service, blog_service, useAppData } from "@/context/AppContext"
+import { useParams, useRouter } from "next/navigation"
+import React, { useEffect, useState } from "react"
+import axios from "axios"
+import Loading from "@/components/loading"
+import Link from "next/link"
+import { Calendar, Bookmark, Pencil, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Cookies from "js-cookie"
+import toast from "react-hot-toast"
 
 const BlogPage = () => {
+  const params = useParams()
+  const id = params?.id as string
 
-    const { id } = useParams()
-    const router = useRouter()
-    const { isAuth, user } = useAppData()
+  const router = useRouter()
+  const { isAuth, user, fetchBlogs } = useAppData()
 
-    const [blog, setBlog] = useState<Blog | null>(null)
-    const [author, setAuthor] = useState<User | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [bookmarked, setBookmarked] = useState(false)
-    const [deleting, setDeleting] = useState(false)
+  const [blog, setBlog] = useState<Blog | null>(null)
+  const [author, setAuthor] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [bookmarked, setBookmarked] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-    async function fetchSingleBlog() {
-        try {
-            setLoading(true)
-            const { data } = await axios.get(`${blog_service}/api/v1/blog/${id}`)
-            setBlog(data.blog)
-            setAuthor(data.author)
-        } catch (error) {
-            console.log(error)
-        } finally {
-            setLoading(false)
-        }
+  const [commentText, setCommentText] = useState("")
+  const [posting, setPosting] = useState(false)
+  const [comments, setComments] = useState<any[]>([])
+
+  // -------------------
+  // Fetch Blog
+  // -------------------
+  async function fetchSingleBlog() {
+    if (!id) return
+
+    try {
+      setLoading(true)
+
+      const { data } = await axios.get(`${blog_service}/api/v1/blog/${id}`)
+
+      setBlog(data.blog)
+      setAuthor(data.author)
+
+      await fetchComments()
+    } catch (error) {
+      console.log("Failed to fetch blog:", error)
+      toast.error("Failed to load blog")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // -------------------
+  // Fetch Comments
+  // -------------------
+  async function fetchComments() {
+    try {
+      const { data } = await axios.get(`${blog_service}/api/v1/comments/${id}`)
+      setComments(data)
+    } catch (error) {
+      console.log("Failed to fetch comments:", error)
+      toast.error("Failed to load comments")
+    }
+  }
+
+  // -------------------
+  // Add Comment
+  // -------------------
+  async function handlePostComment() {
+    if (!commentText.trim()) {
+      toast.error("Comment cannot be empty")
+      return
     }
 
-    async function handleDelete() {
-        try {
-            setDeleting(true)
-            await axios.delete(`${blog_service}/api/v1/blog/${id}`)
-            router.push("/") // redirect after delete
-        } catch (error) {
-            console.log(error)
-        } finally {
-            setDeleting(false)
+    try {
+      setPosting(true)
+
+      const token = Cookies.get("token")
+
+      const { data } = await axios.post(
+        `${blog_service}/api/v1/comments/${id}`,
+        { comment: commentText },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
+      )
+
+      setComments((prev) => [data.comment, ...prev])
+      setCommentText("")
+
+      toast.success(data.message)
+    } catch (error) {
+      console.log("Error posting comment:", error)
+      toast.error("Problem commenting on blog")
+    } finally {
+      setPosting(false)
     }
+  }
 
-    useEffect(() => {
-        if (id) fetchSingleBlog()
-    }, [id])
+  // -------------------
+  // Delete Comment
+  // -------------------
+  async function handleDeleteComment(commentId: number) {
+    if (!confirm("Are you sure you want to delete this comment?")) return
 
-    if (loading) return <Loading />
-    if (!blog) return <p className="text-center py-20">Blog not found.</p>
+    try {
+      const token = Cookies.get("token")
 
-    const formattedDate = blog.created_at
-        ? new Date(blog.created_at.replace(" ", "T")).toLocaleDateString("en-GB")
-        : ""
+      await axios.delete(`${blog_service}/api/v1/comments/${commentId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-    const isOwner = blog.author === user?._id
+      setComments((prev) => prev.filter((c) => c.id !== commentId))
 
-    return (
-        <div className="bg-zinc-50 min-h-screen">
+      toast.success("Comment deleted")
+    } catch (error) {
+      console.log("Error deleting comment:", error)
+      toast.error("Failed to delete comment")
+    }
+  }
 
-            <div className="max-w-7xl mx-auto px-6 py-12">
+  // -------------------
+  // Delete Blog
+  // -------------------
+  async function handleDeleteBlog() {
+    if (!confirm("Delete this blog permanently?")) return
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+    try {
+      setDeleting(true)
 
-                    {/* LEFT SIDE - IMAGE */}
-                    {blog.image && (
-                        <div className="sticky top-24 h-[500px] rounded-3xl overflow-hidden shadow-xl">
-                            <img
-                                src={blog.image}
-                                alt={blog.title}
-                                className="w-full h-full object-cover"
-                            />
-                        </div>
-                    )}
+      const token = Cookies.get("token")
 
-                    {/* RIGHT SIDE - CONTENT */}
-                    <div className="space-y-8">
+      await axios.delete(`${author_service}/api/v1/blog/${id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
 
-                        {/* Title */}
-                        <h1 className="text-4xl lg:text-5xl font-bold leading-tight text-zinc-900">
-                            {blog.title}
-                        </h1>
+      toast.success("Blog deleted")
 
-                        {/* Author + Controls */}
-                        <div className="flex items-center justify-between border-b border-zinc-200 pb-6">
+      router.push("/blogs")
+      setTimeout(()=>{
+        fetchBlogs()
+      },3000)
+    } catch (error) {
+      console.log("Error deleting blog:", error)
+      toast.error("Failed to delete blog")
+    } finally {
+      setDeleting(false)
+    }
+  }
 
-                            <Link
-                                href={`/profile/${author?._id}`}
-                                className="flex items-center gap-4 group"
-                            >
-                                <img
-                                    src={author?.image || "/avatar.png"}
-                                    className="w-11 h-11 rounded-full object-cover ring-2 ring-zinc-200 group-hover:ring-zinc-400 transition"
-                                    alt={author?.name || "author"}
-                                />
-                                <div>
-                                    <p className="font-semibold text-zinc-800 group-hover:text-black transition">
-                                        {author?.name}
-                                    </p>
-                                    <p className="text-sm text-zinc-500">Author</p>
-                                </div>
-                            </Link>
+  useEffect(() => {
+    if (id) {
+      fetchSingleBlog()
+    }
+  }, [id])
 
-                            <div className="flex items-center gap-4">
+  if (loading) return <Loading />
+  if (!blog) return <p className="text-center py-20">Blog not found.</p>
 
-                                {/* Date */}
-                                <div className="flex items-center gap-2 text-sm text-zinc-500">
-                                    <Calendar size={15} />
-                                    <span>{formattedDate}</span>
-                                </div>
+  const formattedDate = blog.created_at
+    ? new Date(blog.created_at).toLocaleDateString("en-GB")
+    : ""
 
-                                {/* OWNER CONTROLS */}
-                                {isOwner && (
-                                    <div className="flex items-center gap-3">
+  const isOwner = blog.author === user?._id
 
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => router.push(`/edit/${blog._id}`)}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Pencil size={16} />
-                                            Edit
-                                        </Button>
+  return (
+    <div className="bg-zinc-50 min-h-screen">
+      <div className="max-w-5xl mx-auto px-6 py-12">
+        {blog.image && (
+          <div className="mb-10 rounded-3xl overflow-hidden shadow-xl">
+            <img
+              src={blog.image}
+              alt={blog.title}
+              className="w-full h-[450px] object-cover"
+            />
+          </div>
+        )}
 
-                                        <Button
-                                            variant="destructive"
-                                            onClick={handleDelete}
-                                            disabled={deleting}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <Trash2 size={16} />
-                                            {deleting ? "Deleting..." : "Delete"}
-                                        </Button>
+        <div className="space-y-8">
+          <h1 className="text-4xl lg:text-5xl font-bold leading-tight text-zinc-900">
+            {blog.title}
+          </h1>
 
-                                    </div>
-                                )}
+          {/* AUTHOR + ACTIONS */}
+          <div className="flex items-center justify-between border-b border-zinc-200 pb-6">
+            <Link
+              href={`/profile/${author?._id}`}
+              className="flex items-center gap-4"
+            >
+              <img
+                src={author?.image || "/avatar.png"}
+                className="w-11 h-11 rounded-full object-cover"
+                alt=""
+              />
+              <div>
+                <p className="font-semibold">{author?.name}</p>
+                <p className="text-sm text-zinc-500">Author</p>
+              </div>
+            </Link>
 
-                                {/* BOOKMARK (only if not owner but logged in) */}
-                                {!isOwner && isAuth && (
-                                    <button
-                                        onClick={() => setBookmarked(prev => !prev)}
-                                        className={`
-                                            flex items-center gap-2 px-5 py-2 rounded-full text-sm font-medium
-                                            transition-all duration-300 ease-out
-                                            ${bookmarked
-                                                ? "bg-zinc-900 text-white shadow-lg scale-105"
-                                                : "border border-zinc-300 text-zinc-700 hover:bg-zinc-900 hover:text-white hover:shadow-md"
-                                            }
-                                        `}
-                                    >
-                                        <Bookmark
-                                            size={16}
-                                            className={`transition-all duration-300 ${
-                                                bookmarked ? "fill-white scale-110" : ""
-                                            }`}
-                                        />
-                                        {bookmarked ? "Saved" : "Bookmark"}
-                                    </button>
-                                )}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm text-zinc-500">
+                <Calendar size={15} />
+                {formattedDate}
+              </div>
 
-                            </div>
+              {isOwner && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => router.push(`/blog/edit/${blog.id}`)}
+                  >
+                    <Pencil size={16} className="mr-2" />
+                    Edit
+                  </Button>
 
-                        </div>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteBlog}
+                    disabled={deleting}
+                  >
+                    <Trash2 size={16} className="mr-2" />
+                    {deleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </>
+              )}
 
-                        {/* Blog Content */}
-                        <article className="prose prose-zinc lg:prose-lg max-w-none">
-                            <div dangerouslySetInnerHTML={{ __html: blog.description }} />
-                        </article>
-
-                    </div>
-
-                </div>
-
+              {!isOwner && isAuth && (
+                <button
+                  onClick={() => setBookmarked(!bookmarked)}
+                  className={`px-4 py-2 rounded-full text-sm transition ${bookmarked
+                      ? "bg-zinc-900 text-white"
+                      : "border border-zinc-300 hover:bg-zinc-900 hover:text-white"
+                    }`}
+                >
+                  <Bookmark
+                    size={16}
+                    className={`inline mr-2 ${bookmarked ? "fill-white" : ""
+                      }`}
+                  />
+                  {bookmarked ? "Saved" : "Bookmark"}
+                </button>
+              )}
             </div>
+          </div>
 
+          {blog.description && (
+            <p className="text-lg text-zinc-600 leading-relaxed">
+              {blog.description}
+            </p>
+          )}
+
+          {blog.blogContent && (
+            <article className="prose prose-zinc lg:prose-lg max-w-none">
+              <div dangerouslySetInnerHTML={{ __html: blog.blogContent }} />
+            </article>
+          )}
+
+          {/* COMMENTS */}
+          <div className="pt-10 border-t border-zinc-200 space-y-6">
+            <h2 className="text-2xl font-semibold">Comments</h2>
+
+            {isAuth ? (
+              <div className="space-y-3">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Write your comment..."
+                  className="w-full p-4 rounded-xl border border-zinc-300 focus:outline-none focus:ring-2 focus:ring-zinc-400 transition"
+                  rows={4}
+                />
+
+                <Button
+                  onClick={handlePostComment}
+                  disabled={posting || !commentText.trim()}
+                >
+                  {posting ? "Posting..." : "Post Comment"}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-zinc-500">
+                Login to leave a comment.
+              </p>
+            )}
+
+            {/* COMMENT LIST */}
+            <div className="space-y-4">
+              {comments.length === 0 && (
+                <p className="text-zinc-500 text-sm">
+                  No comments yet. Be the first to comment.
+                </p>
+              )}
+
+              {comments.map((c) => (
+                <div
+                  key={c.id}
+                  className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-start"
+                >
+                  <div>
+                    <p className="text-sm text-zinc-600 mb-1">
+                      {c.username || "User"}
+                    </p>
+
+                    <p className="text-sm text-zinc-400">
+                      {new Date(c.created_at).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}
+                    </p>
+
+                    <p className="mt-1">{c.comment}</p>
+                  </div>
+
+                  {isAuth && user?._id === c.userid && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteComment(c.id)}
+                    >
+                      <Trash2 size={14} />
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-    )
+      </div>
+    </div>
+  )
 }
 
 export default BlogPage

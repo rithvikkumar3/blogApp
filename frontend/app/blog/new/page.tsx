@@ -10,7 +10,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Cookies from 'js-cookie'
 import axios from 'axios'
-import { author_service } from '@/context/AppContext'
+import { author_service, useAppData } from '@/context/AppContext'
 import toast from 'react-hot-toast'
 
 const JoditEditor = dynamic(() => import('jodit-react'), { ssr: false })
@@ -28,6 +28,8 @@ export const blogCategories = [
 const AddBlog = () => {
   const editor = useRef<any>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  const {fetchBlogs} = useAppData()
 
   const [loading, setLoading] = useState(false)
   const [aiTitleLoading, setAiTitleLoading] = useState(false)
@@ -76,6 +78,7 @@ const AddBlog = () => {
 
       setFormData({ title: "", description: "", category: "", image: null, blogContent: "" })
       if (fileInputRef.current) fileInputRef.current.value = ""
+
     } catch {
       toast.error("Error publishing blog!")
     } finally {
