@@ -5,6 +5,12 @@ import { sql } from "../utils/db.js";
 import tryCatch from "../utils/tryCatch.js";
 import cloudinary from "cloudinary"
 import { invalidateCacheJob } from "../utils/rabbitmq.js";
+import { GoogleGenAI } from "@google/genai";
+
+
+    const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY as string,
+    });
 
 export const createBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
     const { title, description, blogContent, category } = req.body;
@@ -122,3 +128,130 @@ export const deleteBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
     })
 
 })
+
+
+// ✅ Safe Gemini Text Extractor (Fixes random failures)
+const extractTextFromGemini = (response: any): string | null => {
+    try {
+        if (response?.text) return response.text;
+
+        if (response?.candidates?.length) {
+            return response.candidates[0]?.content?.parts
+                ?.map((p: any) => p.text || "")
+                .join("");
+        }
+
+        return null;
+    } catch (err) {
+        console.error("Gemini extract error:", err);
+        return null;
+    }
+};
+
+export const aiTitleResponse = tryCatch(async (req, res) => {
+    const { text } = req.body;
+
+    if (!text?.trim()) {
+        return res.status(400).json({ message: "Text is required" });
+    }
+
+    const prompt = `Correct the grammar of this blog title.
+Return only the corrected title.
+No explanation.
+
+Title: "${text}"`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+
+    const rawText = extractTextFromGemini(response);
+
+    if (!rawText) {
+        return res.status(500).json({ message: "AI returned empty response" });
+    }
+
+    return res.json({
+        title: rawText.trim(),
+    });
+});
+
+
+export const aiDescriptionResponse = tryCatch(async (req, res) => {
+    const { title = "", description = "" } = req.body;
+
+    if (!title && !description) {
+        return res.status(400).json({
+            message: "Title or description is required",
+        });
+    }
+
+    const prompt =
+        description.trim() === ""
+            ? `Write ONE short blog description (max 25 words).
+Return only one sentence.
+No explanation.
+
+Title: "${title}"`
+            : `Fix grammar in this blog description.
+Return only the corrected sentence.
+
+"${description}"`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+    });
+
+    const rawText = extractTextFromGemini(response);
+
+    if (!rawText) {
+        return res.status(500).json({
+            message: "AI returned empty response",
+        });
+    }
+
+    return res.json({
+        description: rawText.trim(),
+    });
+});
+
+export const aiBlogResponse = tryCatch(async (req, res) => {
+    const { blog } = req.body;
+
+    if (!blog?.trim()) {
+        return res.status(400).json({
+            message: "Please provide blog HTML",
+        });
+    }
+
+    const prompt = `
+You are a grammar correction engine.
+
+IMPORTANT RULES:
+- Do NOT rewrite content.
+- Do NOT add new ideas.
+- Only fix grammar, spelling, punctuation.
+- Preserve ALL HTML tags exactly.
+- Preserve inline styles, images, formatting.
+- Return ONLY the corrected full HTML.
+`;
+
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: `${prompt}\n\n${blog}`,
+    });
+
+    const rawText = extractTextFromGemini(response);
+
+    if (!rawText) {
+        return res.status(500).json({
+            message: "AI returned empty response",
+        });
+    }
+
+    return res.status(200).json({
+        html: rawText.trim(),
+    });
+});
