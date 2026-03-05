@@ -153,7 +153,7 @@ export const getSingleBlog = tryCatch(async (req, res) => {
 
 
 export const addComment = tryCatch(async (req: AuthenticatedRequest, res) => {
-    const {blogId} = req.params  
+    const { blogId } = req.params
     const { comment } = req.body
 
     if (!comment) {
@@ -198,4 +198,36 @@ export const deleteComment = tryCatch(async (req: AuthenticatedRequest, res) => 
     await sql`DELETE FROM comments WHERE id = ${commentId}`
 
     res.json({ message: "Comment deleted" })
+})
+
+export const saveBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
+    const { blogid } = req.params;
+    const userid = req.user?._id;
+
+    if (!blogid || !userid) {
+        res.status(400).json({
+            message: "Missing blogid or userid",
+        })
+        return;
+    }
+    const existing = await sql`SELECT * FROM savedblogs WHERE userid = ${userid} AND blogid = ${blogid}`;
+    if (existing.length === 0) {
+        await sql`INSERT INTO savedblogs (blogid, userid) VALUES (${blogid}, ${userid})`;
+        res.json({
+            message: "Blog added to saved blogs",
+        })
+        return;
+    }
+    else {
+        await sql`DELETE FROM savedblogs WHERE userid = ${userid} AND blogid = ${blogid}`;
+        res.json({
+            message: "Blog removed from saved blogs",
+        })
+        return
+    }
+})
+
+export const getSavedBlogs = tryCatch(async(req:AuthenticatedRequest,res)=>{
+    const blogs = await sql`SELECT * FROM savedblogs WHERE userid = ${req.user?._id}`;
+    res.json(blogs)
 })

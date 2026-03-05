@@ -16,12 +16,15 @@ const BlogPage = () => {
   const id = params?.id as string
 
   const router = useRouter()
-  const { isAuth, user, fetchBlogs } = useAppData()
+  const { isAuth, user, fetchBlogs, savedBlogs, getSavedBlogs, loading: authLoading } = useAppData()
 
   const [blog, setBlog] = useState<Blog | null>(null)
   const [author, setAuthor] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+
   const [bookmarked, setBookmarked] = useState(false)
+  const [savingBookmark, setSavingBookmark] = useState(false)
+
   const [deleting, setDeleting] = useState(false)
 
   const [commentText, setCommentText] = useState("")
@@ -61,6 +64,36 @@ const BlogPage = () => {
     } catch (error) {
       console.log("Failed to fetch comments:", error)
       toast.error("Failed to load comments")
+    }
+  }
+
+  // -------------------
+  // Save / Unsave Blog
+  // -------------------
+  async function handleSaveBlog() {
+    try {
+      setSavingBookmark(true)
+
+      const token = Cookies.get("token")
+
+      const { data } = await axios.post(
+        `${blog_service}/api/v1/save/${id}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+
+      setBookmarked((prev) => !prev)
+
+      toast.success(data.message)
+    } catch (error) {
+      console.log("Error saving blog:", error)
+      toast.error("Failed to save blog")
+    } finally {
+      setSavingBookmark(false)
     }
   }
 
@@ -144,9 +177,10 @@ const BlogPage = () => {
       toast.success("Blog deleted")
 
       router.push("/blogs")
-      setTimeout(()=>{
+
+      setTimeout(() => {
         fetchBlogs()
-      },3000)
+      }, 3000)
     } catch (error) {
       console.log("Error deleting blog:", error)
       toast.error("Failed to delete blog")
@@ -155,13 +189,26 @@ const BlogPage = () => {
     }
   }
 
+  // -------------------
+  // Load Blog
+  // -------------------
   useEffect(() => {
     if (id) {
       fetchSingleBlog()
     }
   }, [id])
 
-  if (loading) return <Loading />
+  // -------------------
+  // Sync Bookmark State
+  // -------------------
+  useEffect(() => {
+    if (!blog || savedBlogs === null) return
+
+    const isSaved = savedBlogs.some((b) => b.blogid === blog.id)
+    setBookmarked(isSaved)
+  }, [blog, savedBlogs])
+
+  if (loading || authLoading) return <Loading />
   if (!blog) return <p className="text-center py-20">Blog not found.</p>
 
   const formattedDate = blog.created_at
@@ -173,6 +220,7 @@ const BlogPage = () => {
   return (
     <div className="bg-zinc-50 min-h-screen">
       <div className="max-w-5xl mx-auto px-6 py-12">
+
         {blog.image && (
           <div className="mb-10 rounded-3xl overflow-hidden shadow-xl">
             <img
@@ -184,21 +232,20 @@ const BlogPage = () => {
         )}
 
         <div className="space-y-8">
+
           <h1 className="text-4xl lg:text-5xl font-bold leading-tight text-zinc-900">
             {blog.title}
           </h1>
 
-          {/* AUTHOR + ACTIONS */}
           <div className="flex items-center justify-between border-b border-zinc-200 pb-6">
-            <Link
-              href={`/profile/${author?._id}`}
-              className="flex items-center gap-4"
-            >
+
+            <Link href={`/profile/${author?._id}`} className="flex items-center gap-4">
               <img
                 src={author?.image || "/avatar.png"}
                 className="w-11 h-11 rounded-full object-cover"
                 alt=""
               />
+
               <div>
                 <p className="font-semibold">{author?.name}</p>
                 <p className="text-sm text-zinc-500">Author</p>
@@ -206,6 +253,7 @@ const BlogPage = () => {
             </Link>
 
             <div className="flex items-center gap-4">
+
               <div className="flex items-center gap-2 text-sm text-zinc-500">
                 <Calendar size={15} />
                 {formattedDate}
@@ -234,7 +282,8 @@ const BlogPage = () => {
 
               {!isOwner && isAuth && (
                 <button
-                  onClick={() => setBookmarked(!bookmarked)}
+                  onClick={handleSaveBlog}
+                  disabled={savingBookmark}
                   className={`px-4 py-2 rounded-full text-sm transition ${bookmarked
                       ? "bg-zinc-900 text-white"
                       : "border border-zinc-300 hover:bg-zinc-900 hover:text-white"
@@ -242,10 +291,16 @@ const BlogPage = () => {
                 >
                   <Bookmark
                     size={16}
-                    className={`inline mr-2 ${bookmarked ? "fill-white" : ""
-                      }`}
+                    className={`inline mr-2 ${bookmarked ? "fill-white" : ""}`}
                   />
-                  {bookmarked ? "Saved" : "Bookmark"}
+
+                  {savingBookmark
+                    ? bookmarked
+                      ? "Removing..."
+                      : "Saving..."
+                    : bookmarked
+                      ? "Saved"
+                      : "Bookmark"}
                 </button>
               )}
             </div>
@@ -265,6 +320,7 @@ const BlogPage = () => {
 
           {/* COMMENTS */}
           <div className="pt-10 border-t border-zinc-200 space-y-6">
+
             <h2 className="text-2xl font-semibold">Comments</h2>
 
             {isAuth ? (
@@ -290,8 +346,8 @@ const BlogPage = () => {
               </p>
             )}
 
-            {/* COMMENT LIST */}
             <div className="space-y-4">
+
               {comments.length === 0 && (
                 <p className="text-zinc-500 text-sm">
                   No comments yet. Be the first to comment.
@@ -304,6 +360,7 @@ const BlogPage = () => {
                   className="bg-white p-4 rounded-xl shadow-sm flex justify-between items-start"
                 >
                   <div>
+
                     <p className="text-sm text-zinc-600 mb-1">
                       {c.username || "User"}
                     </p>
@@ -317,6 +374,7 @@ const BlogPage = () => {
                     </p>
 
                     <p className="mt-1">{c.comment}</p>
+
                   </div>
 
                   {isAuth && user?._id === c.userid && (
@@ -328,8 +386,10 @@ const BlogPage = () => {
                       <Trash2 size={14} />
                     </Button>
                   )}
+
                 </div>
               ))}
+
             </div>
           </div>
         </div>
