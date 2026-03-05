@@ -153,46 +153,49 @@ export const getSingleBlog = tryCatch(async (req, res) => {
 
 
 export const addComment = tryCatch(async (req: AuthenticatedRequest, res) => {
-  const { id: blogId } = req.params
-  const { comment } = req.body
+    const {blogId} = req.params  
+    const { comment } = req.body
 
-  const newComment = await sql`
+    if (!comment) {
+        return res.status(400).json({ message: "Comment is required" })
+    }
+
+    const newComment = await sql`
     INSERT INTO comments (comment, blogid, userid, username)
     VALUES (${comment}, ${blogId}, ${req.user._id}, ${req.user.name})
     RETURNING *
   `
 
-  res.json({
-    message: "Comment added",
-    comment: newComment[0],
-  })
+    res.json({
+        message: "Comment added",
+        comment: newComment[0],
+    })
 })
-
 export const getAllComments = tryCatch(async (req, res) => {
-  const { blogId } = req.params
+    const { blogId } = req.params
 
-  const comments = await sql`
+    const comments = await sql`
     SELECT * FROM comments
     WHERE blogid = ${blogId}
     ORDER BY created_at DESC
   `
 
-  res.json(comments)
+    res.json(comments)
 })
 
 export const deleteComment = tryCatch(async (req: AuthenticatedRequest, res) => {
-  const { commentId } = req.params
-  const comment = await sql`SELECT * FROM comments WHERE id = ${commentId}`
+    const { commentId } = req.params
+    const comment = await sql`SELECT * FROM comments WHERE id = ${commentId}`
 
-  if (!comment[0]) {
-    return res.status(404).json({ message: "Comment not found" })
-  }
+    if (!comment[0]) {
+        return res.status(404).json({ message: "Comment not found" })
+    }
 
-  if (comment[0].userid !== req.user._id) {
-    return res.status(403).json({ message: "You are not authorized to delete this comment" })
-  }
+    if (comment[0].userid !== req.user._id) {
+        return res.status(403).json({ message: "You are not authorized to delete this comment" })
+    }
 
-  await sql`DELETE FROM comments WHERE id = ${commentId}`
+    await sql`DELETE FROM comments WHERE id = ${commentId}`
 
-  res.json({ message: "Comment deleted" })
+    res.json({ message: "Comment deleted" })
 })

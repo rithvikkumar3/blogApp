@@ -7,7 +7,9 @@ const router = express.Router()
 router.get("/blog/all", getAllBlogs)
 router.get("/blog/:id", getSingleBlog)
 
+// COMMENTS
 router.get("/comments/:blogId", getAllComments)
 router.post("/comments/:blogId", isAuth, addComment)
 router.delete("/comments/:commentId", isAuth, deleteComment)
+
 export default router
