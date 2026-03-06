@@ -14,9 +14,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import axios from 'axios'
 import Cookies from 'js-cookie'
-import { author_service, blog_service, useAppData } from '@/context/AppContext'
+import { author_service, blog_service, useAppData, blogCategories } from '@/context/AppContext'
 import toast from 'react-hot-toast'
-import { blogCategories } from '../../new/page'
 import { useParams, useRouter } from 'next/navigation'
 
 const JoditEditor = dynamic(() => import('jodit-react'), { ssr: false })
@@ -64,7 +63,7 @@ const EditBlogPage = () => {
   useEffect(() => {
     const fetchBlog = async () => {
       try {
-        const { data } = await axios.get(
+        const { data }: any = await axios.get(
           `${blog_service}/api/v1/blog/${id}`
         )
 
@@ -178,7 +177,7 @@ const EditBlogPage = () => {
         <form
           id="edit-blog-form"
           onSubmit={handleSubmit}
-          className="w-[380px] bg-white border-l p-6 space-y-6 overflow-auto"
+          className="w-95 bg-white border-l p-6 space-y-6 overflow-auto"
         >
 
           <div className="space-y-2">

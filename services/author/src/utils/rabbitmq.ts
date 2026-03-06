@@ -4,7 +4,7 @@ import dotenv from "dotenv"
 dotenv.config()
 
 let channel: amqp.Channel
-let connection: amqp.Connection
+let connection: amqp.ChannelModel
 
 export const connectRabbitMQ = async () => {
     try {

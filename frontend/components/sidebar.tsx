@@ -13,8 +13,7 @@ import {
 } from './ui/sidebar'
 import { Input } from './ui/input'
 import { LayoutGrid, Search, Tag, Newspaper } from 'lucide-react'
-import { blogCategories } from '@/app/blog/new/page'
-import { useAppData } from '@/context/AppContext'
+import { useAppData, blogCategories } from '@/context/AppContext'
 
 const categoryIcons: Record<string, React.ReactNode> = {
     Technology: <Tag size={14} />,

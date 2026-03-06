@@ -10,20 +10,10 @@ import React, { useMemo, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Cookies from 'js-cookie'
 import axios from 'axios'
-import { author_service, useAppData } from '@/context/AppContext'
+import { author_service, useAppData, blogCategories } from '@/context/AppContext'
 import toast from 'react-hot-toast'
 
 const JoditEditor = dynamic(() => import('jodit-react'), { ssr: false })
-
-export const blogCategories = [
-  "Technology",
-  "Health",
-  "Finance",
-  "Travel",
-  "Education",
-  "Entertainment",
-  "Study"
-]
 
 const AddBlog = () => {
   const editor = useRef<any>(null)
@@ -69,7 +59,7 @@ const AddBlog = () => {
 
     try {
       const token = Cookies.get("token")
-      const { data } = await axios.post(
+      const { data }: any = await axios.post(
         `${author_service}/api/v1/blog/new`,
         formDataToSend,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -91,7 +81,7 @@ const AddBlog = () => {
     if (!formData.title) return
     try {
       setAiTitleLoading(true)
-      const { data } = await axios.post(`${author_service}/api/v1/ai/title`, { text: formData.title })
+      const { data }: any = await axios.post(`${author_service}/api/v1/ai/title`, { text: formData.title })
       if (data?.title) setFormData(prev => ({ ...prev, title: data.title }))
     } catch {
       toast.error("Problem fetching AI title")
@@ -107,7 +97,7 @@ const AddBlog = () => {
     }
     try {
       setAiDescLoading(true)
-      const { data } = await axios.post(`${author_service}/api/v1/ai/description`, {
+      const { data }: any = await axios.post(`${author_service}/api/v1/ai/description`, {
         title: formData.title,
         description: formData.description
       })
@@ -123,7 +113,7 @@ const AddBlog = () => {
     if (!formData.blogContent.trim()) return toast.error("Blog content is empty")
     try {
       setAiBlogLoading(true)
-      const { data } = await axios.post(`${author_service}/api/v1/ai/blog`, { blog: formData.blogContent })
+      const { data }: any = await axios.post(`${author_service}/api/v1/ai/blog`, { blog: formData.blogContent })
       if (data?.html) {
         setFormData(prev => ({ ...prev, blogContent: data.html }))
         toast.success("Blog grammar improved ✨")
@@ -144,7 +134,7 @@ const AddBlog = () => {
   }), [])
 
 return (
-  <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
+  <div className="min-h-screen bg-linear-to-br from-slate-50 to-slate-100 py-12 px-4">
     <div className="max-w-4xl mx-auto">
       <Card className="rounded-2xl border border-slate-200 shadow-lg bg-white">
         <CardHeader className="border-b border-slate-100 p-8">
