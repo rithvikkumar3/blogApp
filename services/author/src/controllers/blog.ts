@@ -57,13 +57,21 @@ export const updateBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
         })
         return;
     }
-    if (blog[0].author !== req.user?._id) {
+
+    const blogRow = blog[0];
+
+    if (!blogRow) {
+        res.status(400).json({ message: "No blog with this id" });
+        return;
+    }
+
+    if (blogRow.author !== req.user?._id) {
         res.status(401).json({
             message: "You are not the author of this blog"
         })
         return;
     }
-    let imageUrl = blog[0].image
+    let imageUrl = blogRow.image
     if (file) {
         const fileBuffer = getBuffer(file)
         if (!fileBuffer || !fileBuffer.content) {
@@ -78,11 +86,11 @@ export const updateBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
         imageUrl = cloud.secure_url
     }
     const updatedBlog = await sql`UPDATE blogs SET
-    title = ${title || blog[0].title},
-    description = ${description || blog[0].description},
+    title = ${title || blogRow.title},
+    description = ${description || blogRow.description},
     image = ${imageUrl},
-    blogContent = ${blogContent || blog[0].blogContent},
-    category = ${category || blog[0].category}
+    blogContent = ${blogContent || blogRow.blogContent},
+    category = ${category || blogRow.category}
     WHERE id = ${id}
     RETURNING *
     `;
@@ -109,7 +117,15 @@ export const deleteBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
         })
         return;
     }
-    if (blog[0].author !== req.user?._id) {
+
+    const blogRow = blog[0];
+
+    if (!blogRow) {
+        res.status(400).json({ message: "No blog with this id" });
+        return;
+    }
+
+    if (blogRow.author !== req.user?._id) {
         res.status(401).json({
             message: "You are not the author of this blog"
         })

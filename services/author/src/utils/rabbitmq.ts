@@ -4,25 +4,41 @@ import dotenv from "dotenv"
 dotenv.config()
 
 let channel: amqp.Channel
+let connection: amqp.ChannelModel
 
 export const connectRabbitMQ = async () => {
     try {
-        const connection = await amqp.connect({
+
+        connection = await amqp.connect({
             protocol: process.env.AMQP_PROTOCOL,
             hostname: process.env.AMQP_HOSTNAME,
             port: Number(process.env.AMQP_PORT),
             username: process.env.AMQP_USERNAME,
             password: process.env.AMQP_PASSWORD,
-
+            vhost: process.env.AMQP_VHOST,
+            heartbeat: 30
         });
+
+        connection.on("error", (err) => {
+            console.error("❌ RabbitMQ connection error:", err);
+        });
+
+        connection.on("close", () => {
+            console.log("⚠️ RabbitMQ connection closed. Reconnecting...");
+            setTimeout(connectRabbitMQ, 5000);
+        });
+
         channel = await connection.createChannel();
+
         console.log("🐰 Connected to RabbitMQ");
 
     } catch (error) {
         console.error("❌ Failed to connect to RabbitMQ", error);
+
+        // retry connection
+        setTimeout(connectRabbitMQ, 5000);
     }
 }
-
 
 export const publishToQueue = async (queueName: string, message: any) => {
     if (!channel) {

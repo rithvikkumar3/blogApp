@@ -19,19 +19,6 @@ export const getAllBlogs = tryCatch(async (req, res) => {
 
     let blogs;
 
-    const baseQuery = sql`
-        SELECT 
-            id,
-            title,
-            description,
-            image,
-            category,
-            author,
-            created_at,
-            blogcontent AS "blogContent"
-        FROM blogs
-    `;
-
     if (searchQuery && category) {
         blogs = await sql`
             SELECT 
@@ -138,7 +125,7 @@ export const getSingleBlog = tryCatch(async (req, res) => {
     }
 
     const { data: author } = await axios.get(
-        `${process.env.USER_SERVICE}/api/v1/user/${blog[0].author}`
+        `${process.env.USER_SERVICE}/api/v1/user/${blog[0]!.author}`
     );
 
     const responseData = {
@@ -152,82 +139,131 @@ export const getSingleBlog = tryCatch(async (req, res) => {
 });
 
 
+// ✅ ADD COMMENT
 export const addComment = tryCatch(async (req: AuthenticatedRequest, res) => {
-    const { blogId } = req.params
-    const { comment } = req.body
+
+    if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { blogId } = req.params;
+    const { comment } = req.body;
 
     if (!comment) {
-        return res.status(400).json({ message: "Comment is required" })
+        return res.status(400).json({ message: "Comment is required" });
     }
 
     const newComment = await sql`
-    INSERT INTO comments (comment, blogid, userid, username)
-    VALUES (${comment}, ${blogId}, ${req.user._id}, ${req.user.name})
-    RETURNING *
-  `
+        INSERT INTO comments (comment, blogid, userid, username)
+        VALUES (${comment}, ${blogId}, ${req.user!._id}, ${req.user!.name})
+        RETURNING *
+    `;
 
     res.json({
         message: "Comment added",
         comment: newComment[0],
-    })
-})
+    });
+});
+
+
+// ✅ GET COMMENTS
 export const getAllComments = tryCatch(async (req, res) => {
-    const { blogId } = req.params
+    const { blogId } = req.params;
 
     const comments = await sql`
-    SELECT * FROM comments
-    WHERE blogid = ${blogId}
-    ORDER BY created_at DESC
-  `
+        SELECT * FROM comments
+        WHERE blogid = ${blogId}
+        ORDER BY created_at DESC
+    `;
 
-    res.json(comments)
-})
+    res.json(comments);
+});
 
+
+// ✅ DELETE COMMENT
 export const deleteComment = tryCatch(async (req: AuthenticatedRequest, res) => {
-    const { commentId } = req.params
-    const comment = await sql`SELECT * FROM comments WHERE id = ${commentId}`
+
+    if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { commentId } = req.params;
+
+    const comment = await sql`
+        SELECT * FROM comments WHERE id = ${commentId}
+    `;
 
     if (!comment[0]) {
-        return res.status(404).json({ message: "Comment not found" })
+        return res.status(404).json({ message: "Comment not found" });
     }
 
-    if (comment[0].userid !== req.user._id) {
-        return res.status(403).json({ message: "You are not authorized to delete this comment" })
+    if (comment[0].userid !== req.user!._id) {
+        return res.status(403).json({ message: "You are not authorized to delete this comment" });
     }
 
-    await sql`DELETE FROM comments WHERE id = ${commentId}`
+    await sql`DELETE FROM comments WHERE id = ${commentId}`;
 
-    res.json({ message: "Comment deleted" })
-})
+    res.json({ message: "Comment deleted" });
+});
 
+
+// ✅ SAVE / UNSAVE BLOG
 export const saveBlog = tryCatch(async (req: AuthenticatedRequest, res) => {
+
+    if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { blogid } = req.params;
-    const userid = req.user?._id;
+    const userid = req.user!._id;
 
-    if (!blogid || !userid) {
-        res.status(400).json({
-            message: "Missing blogid or userid",
-        })
-        return;
+    if (!blogid) {
+        return res.status(400).json({
+            message: "Missing blogid",
+        });
     }
-    const existing = await sql`SELECT * FROM savedblogs WHERE userid = ${userid} AND blogid = ${blogid}`;
+
+    const existing = await sql`
+        SELECT * FROM savedblogs 
+        WHERE userid = ${userid} AND blogid = ${blogid}
+    `;
+
     if (existing.length === 0) {
-        await sql`INSERT INTO savedblogs (blogid, userid) VALUES (${blogid}, ${userid})`;
-        res.json({
-            message: "Blog added to saved blogs",
-        })
-        return;
-    }
-    else {
-        await sql`DELETE FROM savedblogs WHERE userid = ${userid} AND blogid = ${blogid}`;
-        res.json({
-            message: "Blog removed from saved blogs",
-        })
-        return
-    }
-})
 
-export const getSavedBlogs = tryCatch(async(req:AuthenticatedRequest,res)=>{
-    const blogs = await sql`SELECT * FROM savedblogs WHERE userid = ${req.user?._id}`;
-    res.json(blogs)
-})
+        await sql`
+            INSERT INTO savedblogs (blogid, userid)
+            VALUES (${blogid}, ${userid})
+        `;
+
+        return res.json({
+            message: "Blog added to saved blogs",
+        });
+
+    } else {
+
+        await sql`
+            DELETE FROM savedblogs
+            WHERE userid = ${userid} AND blogid = ${blogid}
+        `;
+
+        return res.json({
+            message: "Blog removed from saved blogs",
+        });
+    }
+});
+
+
+// ✅ GET SAVED BLOGS
+export const getSavedBlogs = tryCatch(async (req: AuthenticatedRequest, res) => {
+
+    if (!req.user) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const blogs = await sql`
+        SELECT * FROM savedblogs 
+        WHERE userid = ${req.user!._id}
+    `;
+
+    res.json(blogs);
+});
