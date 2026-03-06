@@ -15,11 +15,15 @@ import { Input } from './ui/input'
 import { LayoutGrid, Search, Tag, Newspaper } from 'lucide-react'
 import { useAppData, blogCategories } from '@/context/AppContext'
 
+// Matches exactly the categories defined in AppContext
 const categoryIcons: Record<string, React.ReactNode> = {
-    Technology: <Tag size={14} />,
-    Lifestyle: <Tag size={14} />,
-    Travel: <Tag size={14} />,
-    // extend as needed
+    Technology:    <Tag size={14} />,
+    Health:        <Tag size={14} />,
+    Finance:       <Tag size={14} />,
+    Travel:        <Tag size={14} />,
+    Education:     <Tag size={14} />,
+    Entertainment: <Tag size={14} />,
+    Study:         <Tag size={14} />,
 }
 
 const SideBar = () => {
@@ -27,14 +31,9 @@ const SideBar = () => {
     const [activeCategory, setActiveCategory] = useState<string>("")
 
     const handleCategoryClick = (category: string) => {
-        if (activeCategory === category) {
-            // Reset to all blogs
-            setActiveCategory("")
-            setCategory("")
-        } else {
-            setActiveCategory(category)
-            setCategory(category)
-        }
+        const next = activeCategory === category ? "" : category
+        setActiveCategory(next)
+        setCategory(next)
     }
 
     return (
@@ -51,7 +50,7 @@ const SideBar = () => {
                 </div>
             </SidebarHeader>
 
-            <SidebarContent className="bg-white px-3 py-4 space-y-6">
+            <SidebarContent className="bg-white px-3 py-4">
 
                 {/* Search */}
                 <SidebarGroup>
@@ -82,7 +81,7 @@ const SideBar = () => {
                     </SidebarGroupLabel>
                     <SidebarMenu className="space-y-0.5">
 
-                        {/* All */}
+                        {/* All Articles */}
                         <SidebarMenuItem>
                             <SidebarMenuButton
                                 onClick={() => handleCategoryClick("")}
@@ -100,7 +99,7 @@ const SideBar = () => {
                         </SidebarMenuItem>
 
                         {/* Dynamic categories */}
-                        {blogCategories?.map((category) => (
+                        {blogCategories.map((category) => (
                             <SidebarMenuItem key={category}>
                                 <SidebarMenuButton
                                     onClick={() => handleCategoryClick(category)}
