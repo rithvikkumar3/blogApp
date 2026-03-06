@@ -16,9 +16,9 @@ import { GoogleOAuthProvider } from "@react-oauth/google"
 // ---------------------------------------------------------------------------
 // Service base URLs
 // ---------------------------------------------------------------------------
-export const user_service = process.env.NEXT_PUBLIC_USER_SERVICE
-export const author_service = process.env.NEXT_PUBLIC_AUTHOR_SERVICE
-export const blog_service = process.env.NEXT_PUBLIC_BLOG_SERVICE
+export const user_service = process.env.NEXT_PUBLIC_USER_SERVICE ?? ""
+export const author_service = process.env.NEXT_PUBLIC_AUTHOR_SERVICE ?? ""
+export const blog_service = process.env.NEXT_PUBLIC_BLOG_SERVICE ?? ""
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -231,7 +231,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         logoutUser,
       }}
     >
-      <GoogleOAuthProvider clientId={process.env.GOOGLE_CLIENT_ID ?? ""}>
+      <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? ""}>
         {children}
         <Toaster position="top-right" />
       </GoogleOAuthProvider>
