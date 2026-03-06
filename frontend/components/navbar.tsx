@@ -1,4 +1,5 @@
 "use client";
+
 import Link from "next/link";
 import React, { useState } from "react";
 import { Button } from "./ui/button";
@@ -7,10 +8,8 @@ import { cn } from "@/lib/utils";
 import { useAppData } from "@/context/AppContext";
 
 const Navbar = () => {
-
   const [isOpen, setIsOpen] = useState(false);
-
-  const {loading, isAuth} = useAppData()
+  const { loading, isAuth } = useAppData();
 
   return (
     <nav className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm z-50">
@@ -18,7 +17,7 @@ const Navbar = () => {
 
         {/* Logo */}
         <Link
-          href={"/blogs"}
+          href="/blogs"
           className="text-2xl font-bold tracking-tight text-gray-900 hover:opacity-80 transition"
         >
           The Daily Fold
@@ -27,36 +26,37 @@ const Navbar = () => {
         {/* Desktop Menu */}
         <ul className="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-700">
           <li>
-            <Link
-              href={"/blogs"}
-              className="relative hover:text-black transition"
-            >
+            <Link href="/blogs" className="hover:text-black transition">
               Home
             </Link>
           </li>
 
           <li>
-            <Link
-              href={"/blog/saved"}
-              className="relative hover:text-black transition"
-            >
+            <Link href="/blog/saved" className="hover:text-black transition">
               Saved Blogs
             </Link>
           </li>
 
-          {loading ? "" :<li>
-          { isAuth ? <Link
-              href={"/profile"}
-              className="p-2 rounded-full hover:bg-gray-100 transition">
-              <CircleUserRound/>
-            </Link>
-             : 
-            <Link
-              href={"/login"}
-              className="p-2 rounded-full hover:bg-gray-100 transition">
-              <LogInIcon className="w-5 h-5" />
-            </Link>}
-          </li>}
+          <li className="w-9 h-9 flex items-center justify-center">
+            {loading ? (
+              // Skeleton placeholder so layout doesn't shift while loading
+              <div className="w-8 h-8 rounded-full bg-gray-100 animate-pulse" />
+            ) : isAuth ? (
+              <Link
+                href="/profile"
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <CircleUserRound className="w-5 h-5" />
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="p-2 rounded-full hover:bg-gray-100 transition"
+              >
+                <LogInIcon className="w-5 h-5" />
+              </Link>
+            )}
+          </li>
         </ul>
 
         {/* Mobile Menu Button */}
@@ -86,7 +86,7 @@ const Navbar = () => {
         <ul className="flex flex-col items-center space-y-5 py-6 text-sm font-medium text-gray-700 bg-white border-t border-gray-100">
           <li>
             <Link
-              href={"/"}
+              href="/blogs"
               className="hover:text-black transition"
               onClick={() => setIsOpen(false)}
             >
@@ -96,7 +96,7 @@ const Navbar = () => {
 
           <li>
             <Link
-              href={"/blog/saved"}
+              href="/blog/saved"
               className="hover:text-black transition"
               onClick={() => setIsOpen(false)}
             >
@@ -105,14 +105,25 @@ const Navbar = () => {
           </li>
 
           <li>
-            <Link
-              href={"/login"}
-              className="flex items-center gap-2 hover:text-black transition"
-              onClick={() => setIsOpen(false)}
-            >
-              <LogInIcon className="w-5 h-5" />
-              Login
-            </Link>
+            {isAuth ? (
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 hover:text-black transition"
+                onClick={() => setIsOpen(false)}
+              >
+                <CircleUserRound className="w-5 h-5" />
+                Profile
+              </Link>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center gap-2 hover:text-black transition"
+                onClick={() => setIsOpen(false)}
+              >
+                <LogInIcon className="w-5 h-5" />
+                Login
+              </Link>
+            )}
           </li>
         </ul>
       </div>
