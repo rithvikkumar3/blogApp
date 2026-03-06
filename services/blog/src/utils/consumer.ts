@@ -15,6 +15,7 @@ export const startCacheConsumer = async () => {
             port: Number(process.env.AMQP_PORT),
             username: process.env.AMQP_USERNAME,
             password: process.env.AMQP_PASSWORD,
+            vhost: process.env.AMQP_VHOST,
 
         });
 
@@ -46,7 +47,7 @@ export const startCacheConsumer = async () => {
                                 const cacheKey = `blogs:${searchQuery}:${category}`;
 
                                 const blogs = await sql`SELECT * FROM blogs ORDER BY created_at DESC`;
-                                await redisClient.set(cacheKey, JSON.stringify(blogs), {EX: 3600})
+                                await redisClient.set(cacheKey, JSON.stringify(blogs), { EX: 3600 })
 
                                 console.log("🔃 Cache  rebuilt with key: ", cacheKey);
                             }
@@ -58,13 +59,13 @@ export const startCacheConsumer = async () => {
                     console.error("❌ Error processing cache invalidation in blog service: ", error);
 
                     channel.nack(msg, false, true)
-                    
+
                 }
             }
         })
     } catch (error) {
         console.log("❌ Failed to start rabbitmq consumer");
-        
+
     }
 }
 
