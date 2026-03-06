@@ -16,10 +16,9 @@ import { GoogleOAuthProvider } from "@react-oauth/google"
 // ---------------------------------------------------------------------------
 // Service base URLs
 // ---------------------------------------------------------------------------
-export const user_service = "https://user-service-bwex.onrender.com"
-export const author_service = "https://author-service-1xb8.onrender.com"
-export const blog_service = "https://blog-service-62kz.onrender.com"
-
+export const user_service = process.env.NEXT_PUBLIC_USER_SERVICE
+export const author_service = process.env.NEXT_PUBLIC_AUTHOR_SERVICE
+export const blog_service = process.env.NEXT_PUBLIC_BLOG_SERVICE
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -232,7 +231,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
         logoutUser,
       }}
     >
-      <GoogleOAuthProvider clientId="596984605688-tr8qvm6q950sejabjgchvpn7bo7ui097.apps.googleusercontent.com">
+      <GoogleOAuthProvider clientId={process.env.GOOGLE_CLIENT_ID ?? ""}>
         {children}
         <Toaster position="top-right" />
       </GoogleOAuthProvider>

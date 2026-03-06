@@ -31,7 +31,8 @@ const EditBlogPage = () => {
   const id = Array.isArray(params.id) ? params.id[0] : params.id
   const router = useRouter()
   const { fetchBlogs, isAuth, loading: authLoading, user } = useAppData()
-  const editorRef = useRef<{ value: string } | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<any>(null)
 
   const [isFetching, setIsFetching] = useState(true)
   const [isUpdating, setIsUpdating] = useState(false)

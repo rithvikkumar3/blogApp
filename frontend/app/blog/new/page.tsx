@@ -24,7 +24,8 @@ interface PublishResponse { message: string }
 
 const AddBlog = () => {
   const router = useRouter()
-  const editorRef = useRef<{ value: string } | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const editorRef = useRef<any>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const { fetchBlogs, isAuth, loading: authLoading } = useAppData()

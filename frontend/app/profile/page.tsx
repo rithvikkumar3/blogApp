@@ -2,7 +2,7 @@
 
 import { Avatar, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
-import { useAppData, user_service } from '@/context/AppContext'
+import { useAppData, user_service, User } from '@/context/AppContext'
 import React, { useRef, useState, useEffect } from 'react'
 import Cookies from "js-cookie"
 import axios from 'axios'
@@ -62,7 +62,7 @@ const ProfilePage = () => {
     try {
       setLoading(true)
       const token = Cookies.get("token")
-      const { data } = await axios.post(
+      const { data } = await axios.post<{ message: string; token: string; user: User }>(
         `${user_service}/api/v1/user/update/pic`,
         form,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -82,7 +82,7 @@ const ProfilePage = () => {
     try {
       setLoading(true)
       const token = Cookies.get("token")
-      const { data } = await axios.post(
+      const { data } = await axios.post<{ message: string; token: string; user: User }>(
         `${user_service}/api/v1/user/update`,
         formData,
         { headers: { Authorization: `Bearer ${token}` } }

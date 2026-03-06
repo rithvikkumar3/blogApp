@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useMemo } from "react"
+import React, { useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -17,13 +17,14 @@ const SavedBlogs = () => {
   const router = useRouter()
   const { savedBlogs, blogs, getSavedBlogs, isAuth, loading } = useAppData()
 
-  // Redirect unauthenticated users
-  if (!loading && !isAuth) {
-    router.push("/login")
-    return null
-  }
+  useEffect(() => {
+    if (!loading && !isAuth) {
+      router.push("/login")
+    }
+  }, [loading, isAuth, router])
 
   if (loading) return <Loading />
+  if (!isAuth) return null
 
   const savedBlogPosts = blogs.filter((blog) =>
     savedBlogs.some((s) => String(s.blogid) === String(blog.id))
@@ -32,7 +33,7 @@ const SavedBlogs = () => {
   async function removeSaved(blogid: string) {
     try {
       const token = Cookies.get("token")
-      const { data } = await axios.post(
+      const { data } = await axios.post<{ message: string }>(
         `${blog_service}/api/v1/save/${blogid}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }

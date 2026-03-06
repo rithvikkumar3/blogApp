@@ -31,7 +31,7 @@ const UserProfilePage = () => {
 
   async function fetchUser() {
     try {
-      const { data } = await axios.get(`${user_service}/api/v1/user/${userid}`)
+      const { data } = await axios.get<Author>(`${user_service}/api/v1/user/${userid}`)
       setUser(data)
     } catch (error) {
       console.error("Failed to fetch user:", error)
