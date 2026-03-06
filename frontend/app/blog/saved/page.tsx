@@ -1,123 +1,113 @@
 "use client"
 
-import React, { useMemo } from "react"
+import React, { useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import axios from "axios"
 import Cookies from "js-cookie"
 import toast from "react-hot-toast"
 
 import { useAppData, blog_service } from "@/context/AppContext"
-import { Calendar, BookmarkX } from "lucide-react"
+import { Calendar, BookmarkX, Bookmark } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import Loading from "@/components/loading"
 
 const SavedBlogs = () => {
+  const router = useRouter()
+  const { savedBlogs, blogs, getSavedBlogs, isAuth, loading } = useAppData()
 
-  const { savedBlogs, blogs, getSavedBlogs } = useAppData()
+  useEffect(() => {
+    if (!loading && !isAuth) {
+      router.push("/login")
+    }
+  }, [loading, isAuth, router])
 
-  const savedBlogPosts = useMemo(() => {
-    if (!savedBlogs || !blogs) return []
+  if (loading) return <Loading />
+  if (!isAuth) return null
 
-    const savedIds = savedBlogs.map((s) => Number(s.blogid))
-
-    return blogs.filter((blog) => savedIds.includes(Number(blog.id)))
-  }, [savedBlogs, blogs])
-
+  const savedBlogPosts = blogs.filter((blog) =>
+    savedBlogs.some((s) => String(s.blogid) === String(blog.id))
+  )
 
   async function removeSaved(blogid: string) {
     try {
       const token = Cookies.get("token")
-
-      const { data } = await axios.post(
+      const { data } = await axios.post<{ message: string }>(
         `${blog_service}/api/v1/save/${blogid}`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
-
       toast.success(data.message)
-
-      // refresh saved blogs
       await getSavedBlogs()
-
     } catch (error) {
-      console.log(error)
+      console.error("Failed to remove saved blog:", error)
       toast.error("Failed to update saved blogs")
     }
-  }
-
-
-  if (!savedBlogs) {
-    return (
-      <div className="p-10 text-center text-gray-500">
-        Loading saved blogs...
-      </div>
-    )
   }
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
 
-      <h1 className="text-3xl font-bold mb-8 flex items-center gap-2">
-        Saved Blogs
-      </h1>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-8">
+        <Bookmark className="w-6 h-6 text-zinc-700" />
+        <h1 className="text-3xl font-bold text-zinc-900">Saved Blogs</h1>
+      </div>
 
+      {/* Empty state */}
       {savedBlogPosts.length === 0 && (
-        <div className="text-gray-500 text-center mt-20">
-          No saved blogs yet
+        <div className="flex flex-col items-center justify-center py-32 text-center">
+          <BookmarkX className="w-12 h-12 text-zinc-300 mb-4" />
+          <p className="text-zinc-500 text-lg">No saved blogs yet</p>
+          <p className="text-zinc-400 text-sm mt-1">Blogs you bookmark will appear here</p>
+          <Link href="/blogs" className="mt-6 text-sm underline text-zinc-600 hover:text-zinc-900">
+            Browse blogs
+          </Link>
         </div>
       )}
 
+      {/* Grid */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-
         {savedBlogPosts.map((blog) => (
-
           <div
             key={blog.id}
-            className="border rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white"
+            className="border border-zinc-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition bg-white"
           >
-
             <Link href={`/blog/${blog.id}`}>
               <div className="relative h-48 w-full">
-                <img
+                <Image
                   src={blog.image}
                   alt={blog.title}
-                  className="object-cover w-full h-full"
+                  fill
+                  className="object-cover"
                 />
               </div>
             </Link>
 
             <div className="p-4">
-
               <Link href={`/blog/${blog.id}`}>
-                <h2 className="font-semibold text-lg hover:underline">
+                <h2 className="font-semibold text-lg text-zinc-900 hover:underline line-clamp-1">
                   {blog.title}
                 </h2>
               </Link>
 
-              <div className="flex items-center gap-2 text-sm text-gray-500 mt-2 mb-4">
-                <Calendar size={14}/>
-                {new Date(blog.created_at).toLocaleDateString()}
+              <div className="flex items-center gap-2 text-sm text-zinc-400 mt-2 mb-4">
+                <Calendar size={14} />
+                {new Date(blog.created_at).toLocaleDateString("en-GB")}
               </div>
 
               <Button
                 variant="outline"
-                className="w-full flex gap-2"
+                className="w-full flex gap-2 text-sm"
                 onClick={() => removeSaved(blog.id)}
               >
-                <BookmarkX size={16}/>
-                Remove from saved
+                <BookmarkX size={16} />
+                Remove
               </Button>
-
             </div>
-
           </div>
-
         ))}
-
       </div>
 
     </div>
