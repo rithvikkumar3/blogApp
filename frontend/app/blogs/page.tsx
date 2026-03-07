@@ -15,6 +15,8 @@ const Blogs = () => {
   const { blogLoading, blogs, isAuth } = useAppData()
   const router = useRouter()
 
+  const isFirstLoad = blogLoading && blogs.length === 0
+
   const handleWriteReview = () => {
     if (!isAuth) {
       toast.error("Please login to write a review", {
@@ -75,7 +77,6 @@ const Blogs = () => {
 
         <div className="relative max-w-7xl mx-auto px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* Icon badge */}
             <div className="w-10 h-10 rounded-xl bg-[#f5c518]/10 border border-[#f5c518]/20 flex items-center justify-center shrink-0">
               <PenSquare size={16} className="text-[#f5c518]" />
             </div>
@@ -112,7 +113,7 @@ const Blogs = () => {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {blogLoading ? (
+        {isFirstLoad ? (
           <div className="flex items-center justify-center py-32">
             <Loading />
           </div>
