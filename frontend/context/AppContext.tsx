@@ -32,6 +32,16 @@ export const blogCategories = [
   "Horror",
   "Documentary",
   "Rom-Com",
+  "Animation",
+  "Crime",
+  "Mystery",
+  "Adventure",
+  "Fantasy",
+  "Biography",
+  "Musical",
+  "Western",
+  "War",
+  "Sport",
 ]
 
 // ---------------------------------------------------------------------------

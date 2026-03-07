@@ -6,9 +6,10 @@ import React, { useEffect, useState } from "react"
 import axios from "axios"
 import { useParams } from "next/navigation"
 import Loading from "@/components/loading"
-import { Instagram, Linkedin, Calendar, Film, Star, Bookmark } from "lucide-react"
+import { Instagram, Linkedin, Film, Star, Bookmark } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import BlogCard from "@/components/BlogCard"
 
 interface Author {
   _id: string; name: string; email: string
@@ -49,7 +50,6 @@ const UserProfilePage = () => {
   const ratings = userBlogs.map(b => extractRating(b.description)).filter(Boolean) as number[]
   const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(1) : null
 
-  // Their reviews that the current user has saved
   const savedTheirReviews = blogs.filter(b =>
     String(b.author) === String(user._id) &&
     savedBlogs.some(s => String(s.blogid) === String(b.id))
@@ -74,8 +74,6 @@ const UserProfilePage = () => {
             <Avatar className="w-20 h-20 ring-4 ring-[#0a0a0a] shrink-0">
               <AvatarImage src={user.image} alt={user.name} />
             </Avatar>
-
-            {/* Social links */}
             <div className="flex gap-2 mb-1">
               {user.instagram && (
                 <a href={user.instagram} target="_blank" rel="noopener noreferrer"
@@ -133,41 +131,18 @@ const UserProfilePage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
-              {userBlogs.map(blog => {
-                const rating = extractRating(blog.description)
-                return (
-                  <Link key={blog.id} href={`/blog/${blog.id}`}
-                    className="group border border-white/5 rounded-xl overflow-hidden bg-[#111111] hover:border-[#f5c518]/20 transition-all duration-300">
-                    <div className="relative h-32 w-full overflow-hidden">
-                      <Image src={blog.image} alt={blog.title} fill
-                        className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-transparent to-transparent opacity-60" />
-                      {rating !== null && (
-                        <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/70 backdrop-blur-sm rounded px-1.5 py-0.5">
-                          <Star size={8} className="text-[#f5c518] fill-[#f5c518]" />
-                          <span className="text-[10px] font-bold text-white">{rating}</span>
-                        </div>
-                      )}
-                      {blog.category && (
-                        <div className="absolute top-2 left-2">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider bg-[#f5c518] text-[#0a0a0a]">
-                            {blog.category}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      <h3 className="text-xs font-bold text-[#f0ece3] group-hover:text-[#f5c518] transition line-clamp-1 mb-1">
-                        {blog.title}
-                      </h3>
-                      <div className="flex items-center gap-1 text-[10px] text-[#555555]">
-                        <Calendar size={9} />
-                        {new Date(blog.created_at).toLocaleDateString("en-GB")}
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
+              {userBlogs.map(blog => (
+                <BlogCard
+                  key={blog.id}
+                  image={blog.image}
+                  title={blog.title}
+                  description={blog.description}
+                  id={blog.id}
+                  createdAt={blog.created_at}
+                  category={blog.category}
+                  compact
+                />
+              ))}
             </div>
           )}
         </div>
