@@ -1,81 +1,61 @@
 "use client"
 
 import { Avatar, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent } from '@/components/ui/card'
 import { useAppData, user_service, User } from '@/context/AppContext'
 import React, { useRef, useState, useEffect } from 'react'
 import Cookies from "js-cookie"
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import Loading from '@/components/loading'
-import { Instagram, Linkedin, Camera } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Instagram, Linkedin, Camera, LogOut, PenSquare, Settings, Film, Star, Bookmark } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import Image from 'next/image'
+
+function extractRating(text: string): number | null {
+  const match = text.match(/\[rating:(\d+(?:\.\d+)?)\]/i)
+  return match ? parseFloat(match[1]) : null
+}
 
 const ProfilePage = () => {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
-  const { user, setUser, logoutUser, isAuth, loading: authLoading } = useAppData()
+  const { user, setUser, logoutUser, isAuth, loading: authLoading, blogs, savedBlogs } = useAppData()
 
   const [formData, setFormData] = useState({
-    name: "",
-    instagram: "",
-    linkedin: "",
-    bio: "",
+    name: "", instagram: "", linkedin: "", bio: "",
   })
 
-  // Redirect if not authenticated — safely inside useEffect, not during render
   useEffect(() => {
-    if (!authLoading && !isAuth) {
-      router.push("/login")
-    }
+    if (!authLoading && !isAuth) router.push("/login")
   }, [authLoading, isAuth, router])
 
-  // Sync form data when user loads or changes
   useEffect(() => {
-    if (user) {
-      setFormData({
-        name: user.name || "",
-        instagram: user.instagram || "",
-        linkedin: user.linkedin || "",
-        bio: user.bio || "",
-      })
-    }
+    if (user) setFormData({ name: user.name || "", instagram: user.instagram || "", linkedin: user.linkedin || "", bio: user.bio || "" })
   }, [user])
-
-  const clickHandler = () => {
-    inputRef.current?.click()
-  }
 
   const changeHandler = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     const form = new FormData()
     form.append("file", file)
-
     try {
       setLoading(true)
       const token = Cookies.get("token")
       const { data } = await axios.post<{ message: string; token: string; user: User }>(
-        `${user_service}/api/v1/user/update/pic`,
-        form,
+        `${user_service}/api/v1/user/update/pic`, form,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success(data.message)
       Cookies.set("token", data.token, { expires: 5, secure: true, path: "/" })
       setUser(data.user)
-    } catch (error) {
-      console.error("Image update failed:", error)
-      toast.error("Image update failed")
-    } finally {
-      setLoading(false)
-    }
+    } catch { toast.error("Image update failed") }
+    finally { setLoading(false) }
   }
 
   const handleFormSubmit = async () => {
@@ -83,165 +63,232 @@ const ProfilePage = () => {
       setLoading(true)
       const token = Cookies.get("token")
       const { data } = await axios.post<{ message: string; token: string; user: User }>(
-        `${user_service}/api/v1/user/update`,
-        formData,
+        `${user_service}/api/v1/user/update`, formData,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success(data.message)
       Cookies.set("token", data.token, { expires: 5, secure: true, path: "/" })
       setUser(data.user)
       setOpen(false)
-    } catch (error) {
-      console.error("Profile update failed:", error)
-      toast.error("Profile update failed")
-    } finally {
-      setLoading(false)
-    }
+    } catch { toast.error("Profile update failed") }
+    finally { setLoading(false) }
   }
 
   if (authLoading || loading) return <Loading />
   if (!user) return null
 
+  // Own reviews
+  const myBlogs = blogs.filter(b => String(b.author) === String(user._id))
+  const myRatings = myBlogs.map(b => extractRating(b.description)).filter(Boolean) as number[]
+  const avgRating = myRatings.length ? (myRatings.reduce((a, b) => a + b, 0) / myRatings.length).toFixed(1) : null
+
+  // Watchlist preview
+  const watchlistPosts = blogs.filter(blog => savedBlogs.some(s => String(s.blogid) === String(blog.id))).slice(0, 5)
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-sky-50 px-4">
-      <Card className="w-full max-w-xl rounded-3xl border border-white/50 bg-white/70 backdrop-blur-xl shadow-[0_25px_60px_rgba(0,0,0,0.08)]">
-        <CardContent className="p-10 flex flex-col items-center gap-8">
+    <div className="flex-1 bg-[#0a0a0a] flex overflow-hidden">
 
-          {/* Avatar */}
-          <div className="relative group">
-            <Avatar
-              className="w-32 h-32 ring-4 ring-white shadow-xl cursor-pointer transition-transform duration-300 group-hover:scale-105"
-              onClick={clickHandler}
-            >
-              <AvatarImage src={user.image} alt={user.name} />
-            </Avatar>
-            <div
-              onClick={clickHandler}
-              className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition cursor-pointer"
-            >
-              <Camera className="w-6 h-6 text-white" />
+      {/* ── LEFT — profile card + recent reviews ── */}
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-white/5">
+
+        {/* Profile header */}
+        <div className="px-7 py-6 border-b border-white/5 shrink-0">
+          <div className="flex items-start gap-5">
+            {/* Avatar */}
+            <div className="relative group cursor-pointer shrink-0" onClick={() => inputRef.current?.click()}>
+              <Avatar className="w-20 h-20 ring-2 ring-white/10 group-hover:ring-[#f5c518]/40 transition">
+                <AvatarImage src={user.image} alt={user.name} />
+              </Avatar>
+              <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <Camera className="w-4 h-4 text-white" />
+              </div>
+              <input ref={inputRef} type="file" className="hidden" accept="image/*" onChange={changeHandler} />
             </div>
-            <input
-              ref={inputRef}
-              type="file"
-              className="hidden"
-              accept="image/*"
-              onChange={changeHandler}
-            />
+
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xl font-bold text-white tracking-tight truncate">{user.name}</h2>
+              <p className="text-xs text-[#555555] mt-0.5">{user.email}</p>
+              {user.bio && (
+                <p className="text-xs text-[#888888] mt-2 leading-relaxed border-l-2 border-[#f5c518]/20 pl-2.5 line-clamp-2">
+                  {user.bio}
+                </p>
+              )}
+
+              {/* Social */}
+              <div className="flex gap-2 mt-3">
+                {user.instagram && (
+                  <a href={user.instagram} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[#888888] hover:text-pink-400 transition text-[10px] font-medium">
+                    <Instagram size={10} /> Instagram
+                  </a>
+                )}
+                {user.linkedin && (
+                  <a href={user.linkedin} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/5 border border-white/5 text-[#888888] hover:text-blue-400 transition text-[10px] font-medium">
+                    <Linkedin size={10} /> LinkedIn
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2 shrink-0">
+              <button onClick={() => router.push("/blog/new")}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f5c518] text-[#0a0a0a] text-xs font-bold hover:bg-[#f5c518]/90 transition whitespace-nowrap">
+                <PenSquare size={12} /> Write Review
+              </button>
+
+              <div className="flex gap-2">
+                <Dialog open={open} onOpenChange={setOpen}>
+                  <DialogTrigger asChild>
+                    <button className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[#666666] hover:text-white text-[10px] font-medium transition">
+                      <Settings size={11} /> Edit
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[480px] rounded-2xl bg-[#111111] border border-white/10 text-[#f0ece3]">
+                    <DialogHeader>
+                      <DialogTitle className="text-sm font-bold text-white">Edit Profile</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-2">
+                      {[
+                        { label: "Name", key: "name" },
+                        { label: "Bio", key: "bio" },
+                        { label: "Instagram URL", key: "instagram" },
+                        { label: "LinkedIn URL", key: "linkedin" },
+                      ].map(({ label, key }) => (
+                        <div key={key}>
+                          <Label className="text-[10px] text-[#666666] uppercase tracking-wider mb-1.5 block">{label}</Label>
+                          <Input value={formData[key as keyof typeof formData]}
+                            onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                            className="bg-[#161616] border-white/10 text-[#f0ece3] focus:border-[#f5c518]/40 h-9 text-sm" />
+                        </div>
+                      ))}
+                      <button onClick={handleFormSubmit}
+                        className="w-full py-2.5 rounded-xl bg-[#f5c518] text-[#0a0a0a] font-bold text-sm hover:bg-[#f5c518]/90 transition mt-2">
+                        Save Changes
+                      </button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+
+                <button onClick={logoutUser}
+                  className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 text-[#666666] hover:text-red-400 text-[10px] font-medium transition">
+                  <LogOut size={11} /> Logout
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Name & Email */}
-          <div className="text-center space-y-1">
-            <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">
-              {user.name}
-            </h2>
-            <p className="text-sm text-gray-500">{user.email}</p>
+          {/* Stats row */}
+          <div className="flex gap-3 mt-5">
+            {[
+              { value: myBlogs.length, label: "Reviews" },
+              { value: avgRating ?? "—", label: "Avg Rating" },
+              { value: savedBlogs.length, label: "Watchlist" },
+            ].map(stat => (
+              <div key={stat.label} className="flex-1 bg-[#111111] border border-white/5 rounded-xl px-3 py-2.5 text-center">
+                <p className="text-lg font-black text-[#f5c518]">{stat.value}</p>
+                <p className="text-[9px] text-[#555555] uppercase tracking-widest mt-0.5">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* My reviews grid — scrollable */}
+        <div className="flex-1 overflow-y-auto px-7 py-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Film size={13} className="text-[#f5c518]" />
+            <h3 className="text-xs font-bold text-[#f0ece3] uppercase tracking-widest">My Reviews</h3>
           </div>
 
-          {/* Bio */}
-          {user.bio && (
-            <p className="text-center text-gray-600 leading-relaxed max-w-md">
-              {user.bio}
-            </p>
+          {myBlogs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-40 opacity-40 gap-2">
+              <Film size={28} className="text-[#222222]" />
+              <p className="text-xs text-[#444444]">No reviews published yet</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+              {myBlogs.map(blog => {
+                const rating = extractRating(blog.description)
+                return (
+                  <Link key={blog.id} href={`/blog/${blog.id}`}
+                    className="group border border-white/5 rounded-xl overflow-hidden bg-[#111111] hover:border-[#f5c518]/20 transition-all duration-300">
+                    <div className="relative h-28 w-full overflow-hidden">
+                      <Image src={blog.image} alt={blog.title} fill
+                        className="object-cover transition-transform duration-500 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-transparent to-transparent opacity-60" />
+                      {rating !== null && (
+                        <div className="absolute top-2 right-2 flex items-center gap-0.5 bg-black/70 backdrop-blur-sm rounded px-1.5 py-0.5">
+                          <Star size={8} className="text-[#f5c518] fill-[#f5c518]" />
+                          <span className="text-[10px] font-bold text-white">{rating}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-2.5">
+                      <h3 className="text-xs font-bold text-[#f0ece3] group-hover:text-[#f5c518] transition line-clamp-1">
+                        {blog.title}
+                      </h3>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
           )}
+        </div>
+      </div>
 
-          {/* Social Links */}
-          <div className="flex gap-4">
-            {user.instagram && (
-              <a
-                href={user.instagram}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-3 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 text-white shadow-md hover:scale-105 transition"
-              >
-                <Instagram className="w-5 h-5" />
-              </a>
-            )}
-            {user.linkedin && (
-              <a
-                href={user.linkedin}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="p-3 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md hover:scale-105 transition"
-              >
-                <Linkedin className="w-5 h-5" />
-              </a>
-            )}
+      {/* ── RIGHT — watchlist sidebar ── */}
+      <div className="w-[280px] shrink-0 bg-[#0d0d0d] flex flex-col overflow-hidden">
+        <div className="px-5 py-5 border-b border-white/5 shrink-0">
+          <div className="flex items-center gap-2">
+            <Bookmark size={13} className="text-[#f5c518]" />
+            <span className="text-xs font-semibold text-[#f0ece3] uppercase tracking-widest">Watchlist</span>
           </div>
+          <p className="text-[10px] text-[#444444] mt-1">{savedBlogs.length} saved</p>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="w-full flex flex-col sm:flex-row gap-3 pt-4">
-            <Button
-              variant="outline"
-              className="flex-1 rounded-xl"
-              onClick={logoutUser}
-            >
-              Logout
-            </Button>
-
-            <Button
-              className="flex-1 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md hover:opacity-90"
-              onClick={() => router.push("/blog/new")}
-            >
-              Add Blog
-            </Button>
-
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex-1 rounded-xl">
-                  Edit
-                </Button>
-              </DialogTrigger>
-
-              <DialogContent className="sm:max-w-[500px] rounded-2xl">
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold">
-                    Edit Profile
-                  </DialogTitle>
-                </DialogHeader>
-
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <Label>Name</Label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    />
+        <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+          {watchlistPosts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full opacity-30 gap-2">
+              <Bookmark size={24} className="text-[#333333]" />
+              <p className="text-xs text-[#444444] text-center">Nothing in watchlist</p>
+            </div>
+          ) : (
+            watchlistPosts.map(blog => {
+              const rating = extractRating(blog.description)
+              return (
+                <Link key={blog.id} href={`/blog/${blog.id}`}
+                  className="flex gap-3 p-2.5 rounded-xl bg-[#111111] border border-white/5 hover:border-[#f5c518]/20 transition group">
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                    <Image src={blog.image} alt={blog.title} fill className="object-cover" />
                   </div>
-                  <div>
-                    <Label>Bio</Label>
-                    <Input
-                      value={formData.bio}
-                      onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                    />
+                  <div className="flex-1 min-w-0 py-0.5">
+                    <h3 className="text-xs font-semibold text-[#f0ece3] group-hover:text-[#f5c518] transition line-clamp-2 leading-snug">
+                      {blog.title}
+                    </h3>
+                    {rating !== null && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Star size={8} className="text-[#f5c518] fill-[#f5c518]" />
+                        <span className="text-[10px] text-[#f5c518] font-bold">{rating}/10</span>
+                      </div>
+                    )}
                   </div>
-                  <div>
-                    <Label>Instagram</Label>
-                    <Input
-                      value={formData.instagram}
-                      onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>LinkedIn</Label>
-                    <Input
-                      value={formData.linkedin}
-                      onChange={(e) => setFormData({ ...formData, linkedin: e.target.value })}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleFormSubmit}
-                    className="w-full mt-4 bg-gradient-to-r from-indigo-500 to-blue-600 text-white"
-                  >
-                    Save Changes
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+                </Link>
+              )
+            })
+          )}
+        </div>
+
+        {savedBlogs.length > 5 && (
+          <div className="px-5 py-3 border-t border-white/5 shrink-0">
+            <Link href="/blog/saved"
+              className="flex items-center justify-center w-full py-2 rounded-lg border border-white/10 text-[#555555] hover:text-[#f5c518] hover:border-[#f5c518]/20 transition text-xs font-medium">
+              View all {savedBlogs.length} saved →
+            </Link>
           </div>
-
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,21 +1,16 @@
 "use client"
 
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { RefreshCw } from 'lucide-react'
-import React, { useMemo, useRef, useEffect } from 'react'
-import dynamic from 'next/dynamic'
+import { RefreshCw, Clapperboard, Sparkles, Star } from 'lucide-react'
+import React, { useRef, useEffect, useState } from 'react'
 import Cookies from 'js-cookie'
 import axios from 'axios'
 import { author_service, useAppData, blogCategories } from '@/context/AppContext'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-
-const JoditEditor = dynamic(() => import('jodit-react'), { ssr: false })
+import RichTextEditor from '@/components/RichTextEditor'
 
 interface AiTitleResponse { title: string }
 interface AiDescriptionResponse { description: string }
@@ -24,97 +19,69 @@ interface PublishResponse { message: string }
 
 const AddBlog = () => {
   const router = useRouter()
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const editorRef = useRef<any>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-
   const { fetchBlogs, isAuth, loading: authLoading } = useAppData()
 
   const [loading, setLoading] = useState(false)
   const [aiTitleLoading, setAiTitleLoading] = useState(false)
   const [aiDescLoading, setAiDescLoading] = useState(false)
   const [aiBlogLoading, setAiBlogLoading] = useState(false)
-
+  const [rating, setRating] = useState("")
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "",
-    image: null as File | null,
-    blogContent: ""
+    title: "", description: "", category: "",
+    image: null as File | null, blogContent: ""
   })
 
-  // Auth guard
   useEffect(() => {
-    if (!authLoading && !isAuth) {
-      router.push("/login")
-    }
+    if (!authLoading && !isAuth) router.push("/login")
   }, [authLoading, isAuth, router])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null
-    setFormData(prev => ({ ...prev, image: file }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    const ratingNum = parseFloat(rating)
+    const descWithRating = rating && !isNaN(ratingNum) && ratingNum >= 1 && ratingNum <= 10
+      ? `[rating:${ratingNum}] ${formData.description}` : formData.description
 
-    const formDataToSend = new FormData()
-    formDataToSend.append("title", formData.title)
-    formDataToSend.append("description", formData.description)
-    formDataToSend.append("blogContent", formData.blogContent)
-    formDataToSend.append("category", formData.category)
-    if (formData.image) formDataToSend.append("file", formData.image)
+    const fd = new FormData()
+    fd.append("title", formData.title)
+    fd.append("description", descWithRating)
+    fd.append("blogContent", formData.blogContent)
+    fd.append("category", formData.category)
+    if (formData.image) fd.append("file", formData.image)
 
     try {
       const token = Cookies.get("token")
       const { data } = await axios.post<PublishResponse>(
-        `${author_service}/api/v1/blog/new`,
-        formDataToSend,
+        `${author_service}/api/v1/blog/new`, fd,
         { headers: { Authorization: `Bearer ${token}` } }
       )
       toast.success(data.message)
       await fetchBlogs()
-      setFormData({ title: "", description: "", category: "", image: null, blogContent: "" })
-      if (fileInputRef.current) fileInputRef.current.value = ""
       router.push("/blogs")
-    } catch (error) {
-      console.error("Error publishing blog:", error)
-      toast.error("Error publishing blog!")
+    } catch {
+      toast.error("Error publishing review!")
     } finally {
       setLoading(false)
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // AI Handlers
-  // ---------------------------------------------------------------------------
   const aiTitleResponse = async () => {
     if (!formData.title) return
     try {
       setAiTitleLoading(true)
-      const { data } = await axios.post<AiTitleResponse>(
-        `${author_service}/api/v1/ai/title`,
-        { text: formData.title }
-      )
+      const { data } = await axios.post<AiTitleResponse>(`${author_service}/api/v1/ai/title`, { text: formData.title })
       if (data?.title) setFormData(prev => ({ ...prev, title: data.title }))
-    } catch (error) {
-      console.error("AI title error:", error)
-      toast.error("Problem fetching AI title")
-    } finally {
-      setAiTitleLoading(false)
-    }
+    } catch { toast.error("Problem fetching AI title") }
+    finally { setAiTitleLoading(false) }
   }
 
   const aiDescriptionResponse = async () => {
-    if (!formData.title && !formData.description) {
-      toast.error("Add a title to generate description")
-      return
-    }
+    if (!formData.title && !formData.description) { toast.error("Add a title first"); return }
     try {
       setAiDescLoading(true)
       const { data } = await axios.post<AiDescriptionResponse>(
@@ -122,179 +89,183 @@ const AddBlog = () => {
         { title: formData.title, description: formData.description }
       )
       if (data?.description) setFormData(prev => ({ ...prev, description: data.description }))
-    } catch (error) {
-      console.error("AI description error:", error)
-      toast.error("Problem fetching AI description")
-    } finally {
-      setAiDescLoading(false)
-    }
+    } catch { toast.error("Problem generating description") }
+    finally { setAiDescLoading(false) }
   }
 
   const aiBlogResponse = async () => {
-    if (!formData.blogContent.trim()) return toast.error("Blog content is empty")
+    if (!formData.blogContent.trim()) return toast.error("Write something first")
     try {
       setAiBlogLoading(true)
       const { data } = await axios.post<AiBlogResponse>(
-        `${author_service}/api/v1/ai/blog`,
-        { blog: formData.blogContent }
+        `${author_service}/api/v1/ai/blog`, { blog: formData.blogContent }
       )
       if (data?.html) {
         setFormData(prev => ({ ...prev, blogContent: data.html }))
-        toast.success("Blog grammar improved ✨")
+        toast.success("Writing improved ✨")
       }
-    } catch (error) {
-      console.error("AI blog error:", error)
-      toast.error("Problem fixing blog content")
-    } finally {
-      setAiBlogLoading(false)
-    }
+    } catch { toast.error("Problem improving content") }
+    finally { setAiBlogLoading(false) }
   }
 
-  const editorConfig = useMemo(() => ({
-    readonly: false,
-    placeholder: 'Start typing your blog content here...',
-    toolbarSticky: true,
-    askBeforePasteHTML: false,
-    pasteAsPlainText: false
-  }), [])
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <Card className="rounded-2xl border border-slate-200 shadow-lg bg-white">
-          <CardHeader className="border-b border-slate-100 p-8">
-            <h2 className="text-3xl font-semibold text-slate-800 tracking-tight">
-              Create New Blog
-            </h2>
-            <p className="text-slate-500 text-sm mt-1">
-              Write, enhance with AI, and publish beautifully.
-            </p>
-          </CardHeader>
+    <div className="flex-1 bg-[#0a0a0a] flex overflow-hidden">
 
-          <CardContent className="p-8 space-y-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
+      {/* ── LEFT — editor ── */}
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-white/5">
 
-              {/* Title */}
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">Title</Label>
-                <div className="flex gap-3">
-                  <Input
-                    name="title"
-                    required
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    className="h-11"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={aiTitleResponse}
-                    disabled={aiTitleLoading}
-                    className="h-11 px-4 rounded-xl shrink-0"
-                  >
-                    {aiTitleLoading && <RefreshCw className="animate-spin h-4 w-4 mr-2" />}
-                    Improve
-                  </Button>
-                </div>
-              </div>
+        {/* Editor header */}
+        <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <Clapperboard size={14} className="text-[#f5c518]" />
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#f5c518]">New Review</span>
+          </div>
+          <button
+            type="button"
+            onClick={aiBlogResponse}
+            disabled={aiBlogLoading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 bg-white/5 text-[#888888] hover:text-[#f5c518] hover:border-[#f5c518]/30 transition text-xs font-medium disabled:opacity-40"
+          >
+            {aiBlogLoading ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            Improve Writing
+          </button>
+        </div>
 
-              {/* Description */}
-              <div className="space-y-2">
-                <Label className="text-slate-700 font-medium">Description</Label>
-                <div className="flex gap-3">
-                  <Input
-                    name="description"
-                    required
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    className="h-11"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={aiDescriptionResponse}
-                    disabled={aiDescLoading}
-                    className="h-11 px-4 rounded-xl shrink-0"
-                  >
-                    {aiDescLoading && <RefreshCw className="animate-spin h-4 w-4 mr-2" />}
-                    Generate
-                  </Button>
-                </div>
-              </div>
-
-              {/* Category + Image */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                  >
-                    <SelectTrigger className="h-11">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {blogCategories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-slate-700 font-medium">Featured Image</Label>
-                  <Input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="h-11"
-                  />
-                </div>
-              </div>
-
-              {/* Blog Content */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <Label className="text-slate-700 font-medium">Blog Content</Label>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={aiBlogResponse}
-                    disabled={aiBlogLoading}
-                    className="rounded-xl"
-                  >
-                    {aiBlogLoading && <RefreshCw className="animate-spin h-4 w-4 mr-2" />}
-                    Improve Writing
-                  </Button>
-                </div>
-                <div className="rounded-2xl border border-slate-200 overflow-hidden">
-                  <JoditEditor
-                    ref={editorRef}
-                    value={formData.blogContent}
-                    config={editorConfig}
-                    onBlur={(newContent) =>
-                      setFormData(prev => ({ ...prev, blogContent: newContent }))
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Submit */}
-              <div className="pt-4">
-                <Button
-                  type="submit"
-                  className="w-full h-12 text-base font-medium rounded-2xl"
-                  disabled={loading}
-                >
-                  {loading ? "Publishing..." : "Publish Blog"}
-                </Button>
-              </div>
-
-            </form>
-          </CardContent>
-        </Card>
+        {/* Scrollable editor area */}
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          <RichTextEditor
+            value={formData.blogContent}
+            onChange={(html) => setFormData(prev => ({ ...prev, blogContent: html }))}
+            placeholder="Write your film review here... What did you love? What didn't work?"
+          />
+        </div>
       </div>
+
+      {/* ── RIGHT — metadata sidebar ── */}
+      <form
+        onSubmit={handleSubmit}
+        className="w-[320px] shrink-0 bg-[#0d0d0d] flex flex-col overflow-hidden"
+      >
+        {/* Sidebar header + publish btn */}
+        <div className="px-5 py-4 border-b border-white/5 shrink-0 flex items-center justify-between">
+          <div>
+            <h1 className="text-sm font-bold text-white">Publish Review</h1>
+            <p className="text-[10px] text-[#555555] mt-0.5">Fill in the details</p>
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#f5c518] text-[#0a0a0a] text-xs font-bold hover:bg-[#f5c518]/90 transition hover:shadow-[0_0_20px_rgba(245,197,24,0.2)] disabled:opacity-60"
+          >
+            {loading ? <RefreshCw size={11} className="animate-spin" /> : <Clapperboard size={11} />}
+            {loading ? "Publishing..." : "Publish"}
+          </button>
+        </div>
+
+        {/* Fields — scrollable */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+
+          {/* Title */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-[#555555] uppercase tracking-widest font-semibold">Film Title</Label>
+            <div className="flex gap-2">
+              <Input
+                name="title" required value={formData.title} onChange={handleInputChange}
+                placeholder="e.g. Oppenheimer (2023)"
+                className="flex-1 h-9 text-sm bg-[#161616] border-white/10 text-[#f0ece3] placeholder:text-[#333333] focus:border-[#f5c518]/40 focus:ring-[#f5c518]/20"
+              />
+              <button type="button" onClick={aiTitleResponse} disabled={aiTitleLoading}
+                className="h-9 px-2.5 rounded-lg border border-white/10 bg-white/5 text-[#888888] hover:text-[#f5c518] hover:border-[#f5c518]/30 transition disabled:opacity-40 shrink-0">
+                {aiTitleLoading ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-[#555555] uppercase tracking-widest font-semibold">Short Description</Label>
+            <div className="flex gap-2">
+              <Input
+                name="description" required value={formData.description} onChange={handleInputChange}
+                placeholder="One-line hook..."
+                className="flex-1 h-9 text-sm bg-[#161616] border-white/10 text-[#f0ece3] placeholder:text-[#333333] focus:border-[#f5c518]/40 focus:ring-[#f5c518]/20"
+              />
+              <button type="button" onClick={aiDescriptionResponse} disabled={aiDescLoading}
+                className="h-9 px-2.5 rounded-lg border border-white/10 bg-white/5 text-[#888888] hover:text-[#f5c518] hover:border-[#f5c518]/30 transition disabled:opacity-40 shrink-0">
+                {aiDescLoading ? <RefreshCw size={11} className="animate-spin" /> : <Sparkles size={11} />}
+              </button>
+            </div>
+          </div>
+
+          {/* Genre */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-[#555555] uppercase tracking-widest font-semibold">Genre</Label>
+            <Select value={formData.category} onValueChange={v => setFormData(prev => ({ ...prev, category: v }))}>
+              <SelectTrigger className="h-9 text-sm bg-[#161616] border-white/10 text-[#f0ece3] focus:border-[#f5c518]/40">
+                <SelectValue placeholder="Select genre" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#161616] border-white/10 text-[#f0ece3]">
+                {blogCategories.map(cat => (
+                  <SelectItem key={cat} value={cat} className="focus:bg-white/5">{cat}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Rating */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-[#555555] uppercase tracking-widest font-semibold flex items-center gap-1.5">
+              <Star size={9} className="text-[#f5c518]" /> Rating (1–10)
+            </Label>
+            <Input
+              type="number" min="1" max="10" step="0.5"
+              value={rating} onChange={e => setRating(e.target.value)} placeholder="8.5"
+              className="h-9 text-sm bg-[#161616] border-white/10 text-[#f0ece3] placeholder:text-[#333333] focus:border-[#f5c518]/40 focus:ring-[#f5c518]/20"
+            />
+            {rating && !isNaN(parseFloat(rating)) && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#f5c518]/5 border border-[#f5c518]/10 w-fit">
+                <Star size={10} className="text-[#f5c518] fill-[#f5c518]" />
+                <span className="text-xs font-bold text-[#f5c518]">{parseFloat(rating)}/10</span>
+              </div>
+            )}
+          </div>
+
+          {/* Cover image */}
+          <div className="space-y-1.5">
+            <Label className="text-[10px] text-[#555555] uppercase tracking-widest font-semibold">Cover Image</Label>
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="h-9 px-3 flex items-center rounded-lg border border-white/10 bg-[#161616] text-[#555555] text-xs cursor-pointer hover:border-[#f5c518]/30 hover:text-[#888888] transition"
+            >
+              {formData.image ? (
+                <span className="text-[#f0ece3] truncate">{formData.image.name}</span>
+              ) : (
+                <span>Choose file...</span>
+              )}
+            </div>
+            <input
+              ref={fileInputRef} type="file" accept="image/*" className="hidden"
+              onChange={e => setFormData(prev => ({ ...prev, image: e.target.files?.[0] ?? null }))}
+            />
+          </div>
+
+          {/* Tips */}
+          <div className="rounded-xl bg-[#111111] border border-white/5 p-4 space-y-2">
+            <p className="text-[10px] font-semibold text-[#f5c518] uppercase tracking-widest">Writing Tips</p>
+            {[
+              "Start with your gut reaction",
+              "Mention direction & performances",
+              "Avoid major spoilers",
+              "Rate honestly — not just hype",
+            ].map(tip => (
+              <p key={tip} className="text-[10px] text-[#555555] flex items-start gap-1.5">
+                <span className="text-[#f5c518] mt-0.5 shrink-0">·</span>{tip}
+              </p>
+            ))}
+          </div>
+
+        </div>
+      </form>
     </div>
   )
 }

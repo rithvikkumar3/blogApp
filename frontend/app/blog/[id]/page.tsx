@@ -7,40 +7,35 @@ import axios from "axios"
 import Loading from "@/components/loading"
 import Link from "next/link"
 import Image from "next/image"
-import { Calendar, Bookmark, Pencil, Trash2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import {
+  Calendar, Bookmark, Pencil, Trash2, Star,
+  MessageSquare, Clapperboard, Send
+} from "lucide-react"
 import Cookies from "js-cookie"
 import toast from "react-hot-toast"
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-interface BlogResponse {
-  blog: Blog
-  author: User
-}
-
+interface BlogResponse { blog: Blog; author: User }
 interface Comment {
-  id: number
-  comment: string
-  userid: string
-  username: string
-  blogid: string
-  created_at: string
+  id: number; comment: string; userid: string
+  username: string; blogid: string; created_at: string
+}
+interface CommentResponse { message: string; comment: Comment }
+interface SaveBlogResponse { message: string }
+
+function extractRating(text: string): number | null {
+  const match = text.match(/\[rating:(\d+(?:\.\d+)?)\]/i)
+  return match ? parseFloat(match[1]) : null
+}
+function stripRating(text: string): string {
+  return text.replace(/\[rating:\d+(?:\.\d+)?\]\s*/i, "").trim()
+}
+function ratingColor(r: number): string {
+  if (r >= 8) return "text-green-400"
+  if (r >= 6) return "text-[#f5c518]"
+  if (r >= 4) return "text-orange-400"
+  return "text-red-400"
 }
 
-interface CommentResponse {
-  message: string
-  comment: Comment
-}
-
-interface SaveBlogResponse {
-  message: string
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 const BlogPage = () => {
   const params = useParams()
   const id = params?.id as string
@@ -51,19 +46,13 @@ const BlogPage = () => {
   const [blog, setBlog] = useState<Blog | null>(null)
   const [author, setAuthor] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-
   const [comments, setComments] = useState<Comment[]>([])
   const [commentText, setCommentText] = useState("")
   const [posting, setPosting] = useState(false)
-
   const [bookmarked, setBookmarked] = useState(false)
   const [savingBookmark, setSavingBookmark] = useState(false)
-
   const [deleting, setDeleting] = useState(false)
 
-  // -------------------------------------------------------------------------
-  // Fetch Blog
-  // -------------------------------------------------------------------------
   const fetchSingleBlog = async () => {
     if (!id) return
     try {
@@ -71,58 +60,38 @@ const BlogPage = () => {
       const { data } = await axios.get<BlogResponse>(`${blog_service}/api/v1/blog/${id}`)
       setBlog(data.blog)
       setAuthor(data.author)
-    } catch (error) {
-      console.error("Failed to fetch blog:", error)
-      toast.error("Failed to load blog")
+    } catch {
+      toast.error("Failed to load review")
     } finally {
       setLoading(false)
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Fetch Comments
-  // -------------------------------------------------------------------------
   const fetchComments = async () => {
     if (!id) return
     try {
       const { data } = await axios.get<Comment[]>(`${blog_service}/api/v1/comments/${id}`)
       setComments(data)
-    } catch (error) {
-      console.error("Failed to fetch comments:", error)
-    }
+    } catch { /* silent */ }
   }
 
-  // -------------------------------------------------------------------------
-  // Save / Unsave Blog
-  // -------------------------------------------------------------------------
   const handleSaveBlog = async () => {
     try {
       setSavingBookmark(true)
       const token = Cookies.get("token")
       const { data } = await axios.post<SaveBlogResponse>(
-        `${blog_service}/api/v1/save/${id}`,
-        {},
+        `${blog_service}/api/v1/save/${id}`, {},
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setBookmarked((prev) => !prev)
+      setBookmarked(prev => !prev)
       await getSavedBlogs()
       toast.success(data.message)
-    } catch (error) {
-      console.error("Error saving blog:", error)
-      toast.error("Failed to save blog")
-    } finally {
-      setSavingBookmark(false)
-    }
+    } catch { toast.error("Failed to save review") }
+    finally { setSavingBookmark(false) }
   }
 
-  // -------------------------------------------------------------------------
-  // Add Comment
-  // -------------------------------------------------------------------------
   const handlePostComment = async () => {
-    if (!commentText.trim()) {
-      toast.error("Comment cannot be empty")
-      return
-    }
+    if (!commentText.trim()) return
     try {
       setPosting(true)
       const token = Cookies.get("token")
@@ -131,262 +100,286 @@ const BlogPage = () => {
         { comment: commentText },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setComments((prev) => [data.comment, ...prev])
+      setComments(prev => [data.comment, ...prev])
       setCommentText("")
       toast.success(data.message)
-    } catch (error) {
-      console.error("Error posting comment:", error)
-      toast.error("Problem commenting on blog")
-    } finally {
-      setPosting(false)
-    }
+    } catch { toast.error("Problem posting comment") }
+    finally { setPosting(false) }
   }
 
-  // -------------------------------------------------------------------------
-  // Delete Comment
-  // -------------------------------------------------------------------------
   const handleDeleteComment = async (commentId: number) => {
-    if (!confirm("Are you sure you want to delete this comment?")) return
+    if (!confirm("Delete this comment?")) return
     try {
       const token = Cookies.get("token")
       await axios.delete(`${blog_service}/api/v1/comments/${commentId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      setComments((prev) => prev.filter((c) => c.id !== commentId))
+      setComments(prev => prev.filter(c => c.id !== commentId))
       toast.success("Comment deleted")
-    } catch (error) {
-      console.error("Error deleting comment:", error)
-      toast.error("Failed to delete comment")
-    }
+    } catch { toast.error("Failed to delete comment") }
   }
 
-  // -------------------------------------------------------------------------
-  // Delete Blog
-  // -------------------------------------------------------------------------
   const handleDeleteBlog = async () => {
-    if (!confirm("Delete this blog permanently?")) return
+    if (!confirm("Delete this review permanently?")) return
     try {
       setDeleting(true)
       const token = Cookies.get("token")
       await axios.delete(`${author_service}/api/v1/blog/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
-      toast.success("Blog deleted")
+      toast.success("Review deleted")
       await fetchBlogs()
       router.push("/blogs")
-    } catch (error) {
-      console.error("Error deleting blog:", error)
-      toast.error("Failed to delete blog")
-    } finally {
-      setDeleting(false)
-    }
+    } catch { toast.error("Failed to delete review") }
+    finally { setDeleting(false) }
   }
 
-  // -------------------------------------------------------------------------
-  // Effects
-  // -------------------------------------------------------------------------
   useEffect(() => {
     if (!id) return
     fetchSingleBlog()
     fetchComments()
   }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sync bookmark state whenever savedBlogs or blog changes
   useEffect(() => {
     if (!blog || !savedBlogs.length) return
-    const isSaved = savedBlogs.some((b) => String(b.blogid) === String(blog.id))
-    setBookmarked(isSaved)
+    setBookmarked(savedBlogs.some(b => String(b.blogid) === String(blog.id)))
   }, [blog, savedBlogs])
 
-  // -------------------------------------------------------------------------
-  // Render guards
-  // -------------------------------------------------------------------------
   if (loading || authLoading) return <Loading />
 
   if (!blog) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-zinc-500 text-lg">Blog not found.</p>
+      <div className="flex items-center justify-center h-screen bg-[#0a0a0a]">
+        <p className="text-[#555555]">Review not found.</p>
       </div>
     )
   }
 
   const formattedDate = blog.created_at
-    ? new Date(blog.created_at).toLocaleDateString("en-GB")
-    : ""
-
+    ? new Date(blog.created_at).toLocaleDateString("en-GB") : ""
   const isOwner = blog.author === user?._id
+  const rating = extractRating(blog.description)
+  const cleanDescription = stripRating(blog.description)
 
-  // -------------------------------------------------------------------------
-  // JSX
-  // -------------------------------------------------------------------------
   return (
-    <div className="bg-zinc-50 min-h-screen py-16">
-      <div className="max-w-5xl mx-auto px-6">
+    <div className="flex-1 bg-[#0a0a0a] flex overflow-hidden">
 
-        {/* Blog Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-zinc-100 p-8 md:p-12">
+      {/* ── LEFT COLUMN — poster + review content ── */}
+      <div className="flex-1 flex flex-col overflow-hidden border-r border-white/5">
 
-          {/* Hero Image */}
-          {blog.image && (
-            <div className="mb-10 rounded-xl overflow-hidden relative w-full h-[420px]">
-              <Image
-                src={blog.image}
-                alt={blog.title}
-                fill
-                className="object-cover"
-                priority
-              />
+        {/* Poster — fixed height */}
+        <div className="relative h-[42%] shrink-0 overflow-hidden">
+          {blog.image ? (
+            <>
+              <Image src={blog.image} alt={blog.title} fill className="object-cover" priority />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/30 to-transparent" />
+            </>
+          ) : (
+            <div className="w-full h-full bg-[#111111] flex items-center justify-center">
+              <Clapperboard size={40} className="text-[#222222]" />
             </div>
           )}
 
+          {/* Badges over poster */}
+          <div className="absolute bottom-4 left-5 flex items-center gap-2">
+            {blog.category && (
+              <span className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#f5c518] text-[#0a0a0a]">
+                {blog.category}
+              </span>
+            )}
+          </div>
+
+          {/* Owner actions */}
+          {isOwner && (
+            <div className="absolute top-4 right-4 flex gap-2">
+              <button
+                onClick={() => router.push(`/blog/edit/${blog.id}`)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 text-[#888888] hover:text-white text-xs font-medium transition"
+              >
+                <Pencil size={12} /> Edit
+              </button>
+              <button
+                onClick={handleDeleteBlog}
+                disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/60 backdrop-blur-sm border border-red-500/20 text-red-400 hover:text-red-300 text-xs font-medium transition"
+              >
+                <Trash2 size={12} /> {deleting ? "..." : "Delete"}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Review content — scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
           {/* Title */}
-          <h1 className="text-4xl md:text-5xl font-bold text-zinc-900 leading-tight mb-8">
+          <h1 className="text-2xl font-bold text-white leading-tight tracking-tight">
             {blog.title}
           </h1>
 
-          {/* Author + Actions */}
-          <div className="flex items-center justify-between border-b border-zinc-200 pb-6 mb-10 flex-wrap gap-4">
-
-            {/* Author */}
-            <Link href={`/profile/${author?._id}`} className="flex items-center gap-3">
-              <div className="relative w-11 h-11 rounded-full overflow-hidden">
-                <Image
-                  src={author?.image || "/avatar.png"}
-                  alt={author?.name || "Author"}
-                  fill
-                  className="object-cover"
-                />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-zinc-900">{author?.name}</p>
-                <p className="text-xs text-zinc-500 flex items-center gap-1">
-                  <Calendar size={13} />
-                  {formattedDate}
-                </p>
-              </div>
-            </Link>
-
-            {/* Actions */}
-            <div className="flex items-center gap-3">
-              {isOwner && (
-                <>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push(`/blog/edit/${blog.id}`)}
-                  >
-                    <Pencil size={14} className="mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleDeleteBlog}
-                    disabled={deleting}
-                  >
-                    <Trash2 size={14} className="mr-1" />
-                    {deleting ? "Deleting..." : "Delete"}
-                  </Button>
-                </>
-              )}
-
-              {!isOwner && isAuth && (
-                <button
-                  onClick={handleSaveBlog}
-                  disabled={savingBookmark}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition ${
-                    bookmarked
-                      ? "bg-zinc-900 text-white"
-                      : "border border-zinc-300 hover:bg-zinc-900 hover:text-white"
-                  }`}
-                >
-                  <Bookmark size={16} className={bookmarked ? "fill-white" : ""} />
-                  {savingBookmark ? "Saving..." : bookmarked ? "Saved" : "Bookmark"}
-                </button>
-              )}
+          {/* Author row */}
+          <Link href={`/profile/${author?._id}`} className="flex items-center gap-2.5 group w-fit">
+            <div className="relative w-8 h-8 rounded-full overflow-hidden ring-1 ring-white/10 group-hover:ring-[#f5c518]/40 transition shrink-0">
+              <Image src={author?.image || "/avatar.png"} alt={author?.name || "Author"} fill className="object-cover" />
             </div>
-          </div>
+            <div>
+              <p className="text-xs font-semibold text-[#f0ece3] group-hover:text-[#f5c518] transition leading-none">
+                {author?.name}
+              </p>
+              <p className="text-[10px] text-[#555555] flex items-center gap-1 mt-0.5">
+                <Calendar size={9} /> {formattedDate}
+              </p>
+            </div>
+          </Link>
 
-          {/* Description */}
-          {blog.description && (
-            <p className="text-xl text-zinc-600 leading-relaxed mb-10">
-              {blog.description}
-            </p>
-          )}
-
-          {/* Content */}
+          {/* Review body */}
           {blog.blogContent && (
-            <article className="prose prose-lg max-w-none prose-zinc">
+            <article className="prose prose-invert prose-sm max-w-none
+              prose-headings:text-white prose-headings:font-bold
+              prose-p:text-[#aaaaaa] prose-p:leading-relaxed prose-p:my-2
+              prose-a:text-[#f5c518] prose-a:no-underline hover:prose-a:underline
+              prose-strong:text-white
+              prose-blockquote:border-l-[#f5c518] prose-blockquote:text-[#888888] prose-blockquote:my-3
+              prose-img:rounded-xl prose-img:my-4
+              prose-code:text-[#f5c518] prose-code:bg-white/5 prose-code:px-1
+            ">
               <div dangerouslySetInnerHTML={{ __html: blog.blogContent }} />
             </article>
           )}
         </div>
+      </div>
 
-        {/* Comments Section */}
-        <div className="mt-10 bg-white border border-zinc-100 p-8 rounded-2xl shadow-sm">
-          <h2 className="text-2xl font-semibold mb-6">Comments</h2>
+      {/* ── RIGHT COLUMN — meta + comments ── */}
+      <div className="w-[360px] shrink-0 flex flex-col bg-[#0d0d0d] overflow-hidden">
 
-          {isAuth ? (
-            <div className="mb-8">
-              <textarea
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Write your comment..."
-                className="w-full p-4 border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-400 resize-none text-sm"
-                rows={4}
-              />
-              <div className="flex justify-end mt-3">
-                <Button
-                  onClick={handlePostComment}
-                  disabled={posting || !commentText.trim()}
-                >
-                  {posting ? "Posting..." : "Post Comment"}
-                </Button>
+        {/* Meta panel */}
+        <div className="px-5 py-5 border-b border-white/5 space-y-4 shrink-0">
+
+          {/* Rating display */}
+          {rating !== null && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-[#f5c518]/10 flex items-center justify-center">
+                  <Star size={14} className="text-[#f5c518] fill-[#f5c518]" />
+                </div>
+                <div>
+                  <p className="text-[10px] text-[#555555] uppercase tracking-widest">Rating</p>
+                  <p className={`text-xl font-black leading-none ${ratingColor(rating)}`}>
+                    {rating}<span className="text-xs text-[#555555] font-normal">/10</span>
+                  </p>
+                </div>
+              </div>
+              {/* Star dots visual */}
+              <div className="flex gap-0.5">
+                {[...Array(10)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={`w-1.5 h-4 rounded-sm ${i < Math.round(rating) ? "bg-[#f5c518]" : "bg-white/10"}`}
+                  />
+                ))}
               </div>
             </div>
-          ) : (
-            <p className="text-zinc-500 mb-6 text-sm">
-              <Link href="/login" className="underline hover:text-zinc-800">Login</Link> to leave a comment.
+          )}
+
+          {/* Description */}
+          {cleanDescription && (
+            <p className="text-sm text-[#888888] leading-relaxed border-l-2 border-[#f5c518]/30 pl-3 italic">
+              {cleanDescription}
             </p>
           )}
 
-          {/* Comments List */}
-          <div className="space-y-4">
-            {comments.length === 0 ? (
-              <p className="text-sm text-zinc-400">No comments yet. Be the first!</p>
-            ) : (
-              comments.map((c) => (
-                <div
-                  key={c.id}
-                  className="border border-zinc-100 rounded-lg p-4 flex justify-between items-start gap-4"
-                >
-                  <div>
-                    <p className="font-semibold text-sm text-zinc-900">{c.username}</p>
-                    <p className="text-xs text-zinc-400 mb-1">
-                      {new Date(c.created_at).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </p>
-                    <p className="text-sm text-zinc-700">{c.comment}</p>
-                  </div>
+          {/* Watchlist button */}
+          {!isOwner && isAuth && (
+            <button
+              onClick={handleSaveBlog}
+              disabled={savingBookmark}
+              className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
+                bookmarked
+                  ? "bg-[#f5c518] text-[#0a0a0a] hover:bg-[#f5c518]/90"
+                  : "border border-white/10 text-[#888888] hover:border-[#f5c518]/40 hover:text-[#f5c518] hover:bg-[#f5c518]/5"
+              }`}
+            >
+              <Bookmark size={14} className={bookmarked ? "fill-[#0a0a0a]" : ""} />
+              {savingBookmark ? "Saving..." : bookmarked ? "Watchlisted" : "Add to Watchlist"}
+            </button>
+          )}
+        </div>
 
-                  {isAuth && user?._id === c.userid && (
-                    <button
-                      onClick={() => handleDeleteComment(c.id)}
-                      className="text-zinc-300 hover:text-red-500 transition mt-1 shrink-0"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+        {/* Comments — scrollable */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+
+          {/* Comments header */}
+          <div className="flex items-center gap-2 px-5 py-3 border-b border-white/5 shrink-0">
+            <MessageSquare size={13} className="text-[#f5c518]" />
+            <span className="text-xs font-semibold text-[#f0ece3] uppercase tracking-widest">
+              Discussion
+            </span>
+            {comments.length > 0 && (
+              <span className="ml-auto text-[10px] text-[#444444]">{comments.length}</span>
+            )}
+          </div>
+
+          {/* Comments list */}
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+            {comments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full gap-2 opacity-40">
+                <MessageSquare size={24} className="text-[#333333]" />
+                <p className="text-xs text-[#444444]">No comments yet</p>
+              </div>
+            ) : (
+              comments.map(c => (
+                <div key={c.id} className="group bg-[#111111] rounded-xl p-3 border border-white/5 hover:border-white/10 transition">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <p className="text-xs font-semibold text-[#f0ece3] truncate">{c.username}</p>
+                        <span className="text-[#2a2a2a] text-xs">·</span>
+                        <p className="text-[10px] text-[#444444] shrink-0">
+                          {new Date(c.created_at).toLocaleDateString("en-GB")}
+                        </p>
+                      </div>
+                      <p className="text-xs text-[#888888] leading-relaxed">{c.comment}</p>
+                    </div>
+                    {isAuth && user?._id === c.userid && (
+                      <button
+                        onClick={() => handleDeleteComment(c.id)}
+                        className="opacity-0 group-hover:opacity-100 text-[#333333] hover:text-red-400 transition shrink-0 mt-0.5"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))
             )}
           </div>
-        </div>
 
+          {/* Comment input — pinned to bottom */}
+          <div className="p-4 border-t border-white/5 shrink-0">
+            {isAuth ? (
+              <div className="flex gap-2">
+                <input
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && !e.shiftKey && handlePostComment()}
+                  placeholder="Add a comment..."
+                  className="flex-1 h-9 px-3 rounded-lg bg-[#161616] border border-white/10 text-[#f0ece3] text-xs placeholder:text-[#444444] focus:outline-none focus:border-[#f5c518]/40 transition"
+                />
+                <button
+                  onClick={handlePostComment}
+                  disabled={posting || !commentText.trim()}
+                  className="w-9 h-9 rounded-lg bg-[#f5c518] flex items-center justify-center text-[#0a0a0a] hover:bg-[#f5c518]/90 transition disabled:opacity-40 shrink-0"
+                >
+                  <Send size={13} />
+                </button>
+              </div>
+            ) : (
+              <Link href="/login" className="flex items-center justify-center gap-2 w-full h-9 rounded-lg border border-white/10 text-[#555555] hover:text-[#f5c518] hover:border-[#f5c518]/20 transition text-xs font-medium">
+                <Clapperboard size={12} /> Sign in to comment
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -19,17 +19,19 @@ import { GoogleOAuthProvider } from "@react-oauth/google"
 export const user_service = process.env.NEXT_PUBLIC_USER_SERVICE ?? ""
 export const author_service = process.env.NEXT_PUBLIC_AUTHOR_SERVICE ?? ""
 export const blog_service = process.env.NEXT_PUBLIC_BLOG_SERVICE ?? ""
+
 // ---------------------------------------------------------------------------
-// Constants
+// Film genres (replaces old blog categories)
 // ---------------------------------------------------------------------------
 export const blogCategories = [
-  "Technology",
-  "Health",
-  "Finance",
-  "Travel",
-  "Education",
-  "Entertainment",
-  "Study",
+  "Action",
+  "Drama",
+  "Thriller",
+  "Comedy",
+  "Sci-Fi",
+  "Horror",
+  "Documentary",
+  "Rom-Com",
 ]
 
 // ---------------------------------------------------------------------------
@@ -117,9 +119,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     try {
       const { data } = await axios.get<SavedBlogType[]>(
         `${blog_service}/api/v1/blog/saved/all`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       )
       setSavedBlogs(data)
     } catch (error) {
@@ -142,7 +142,6 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       const { data } = await axios.get<User>(`${user_service}/api/v1/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-
       setUser(data)
       setIsAuth(true)
       await getSavedBlogs()
@@ -155,7 +154,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   }, [getSavedBlogs])
 
   // -------------------------------------------------------------------------
-  // fetchBlogs — receives params directly to avoid stale closure bug
+  // fetchBlogs
   // -------------------------------------------------------------------------
   const fetchBlogs = useCallback(
     async (query = searchQuery, cat = category) => {
@@ -163,14 +162,12 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
       try {
         const { data } = await axios.get<Blog[]>(
           `${blog_service}/api/v1/blog/all`,
-          {
-            params: { searchQuery: query, category: cat },
-          }
+          { params: { searchQuery: query, category: cat } }
         )
         setBlogs(data)
       } catch (error) {
         console.error("Failed to fetch blogs:", error)
-        toast.error("Failed to fetch blogs")
+        toast.error("Failed to fetch reviews")
       } finally {
         setBlogLoading(false)
       }
@@ -196,13 +193,10 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     fetchUser()
   }, [fetchUser])
 
-  // Debounced search/category refetch — passes current values directly
-  // so the callback always sees fresh state (fixes stale closure)
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchBlogs(searchQuery, category)
     }, 400)
-
     return () => clearTimeout(timer)
   }, [searchQuery, category]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -233,7 +227,21 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     >
       <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? ""}>
         {children}
-        <Toaster position="top-right" />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: "#161616",
+              color: "#f0ece3",
+              border: "1px solid #2a2a2a",
+              borderRadius: "10px",
+              fontSize: "14px",
+            },
+            success: {
+              iconTheme: { primary: "#f5c518", secondary: "#0a0a0a" },
+            },
+          }}
+        />
       </GoogleOAuthProvider>
     </AppContext.Provider>
   )
@@ -244,10 +252,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 // ---------------------------------------------------------------------------
 export const useAppData = () => {
   const context = useContext(AppContext)
-
   if (!context) {
     throw new Error("useAppData must be used within AppProvider")
   }
-
   return context
 }
