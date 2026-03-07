@@ -75,7 +75,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   useEffect(() => {
     if (!editor) return
     if (editor.getHTML() !== value) {
-      editor.commands.setContent(value, false)
+      editor.commands.setContent(value)
     }
   }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
 

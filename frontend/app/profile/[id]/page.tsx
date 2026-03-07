@@ -31,10 +31,17 @@ const UserProfilePage = () => {
 
   useEffect(() => {
     if (!userid) return
-    axios.get<Author>(`${user_service}/api/v1/user/${userid}`)
-      .then(r => setUser(r.data))
-      .catch(e => console.error(e))
-      .finally(() => setLoading(false))
+    const fetchUser = async () => {
+      try {
+        const r = await axios.get<Author>(`${user_service}/api/v1/user/${userid}`)
+        setUser(r.data)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUser()
   }, [userid])
 
   if (loading) return <Loading />
