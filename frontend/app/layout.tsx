@@ -5,8 +5,8 @@ import { AppProvider } from "@/context/AppContext";
 import { SidebarProvider } from "@/components/ui/sidebar";
 
 export const metadata: Metadata = {
-  title: "BlogApp",
-  description: "A clean and minimal blogging platform",
+  title: "ScreenScoop — The inside scoop on films",
+  description: "Discover, review, and discuss the films that matter. The inside scoop on cinema.",
 };
 
 export default function RootLayout({
@@ -15,14 +15,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased min-h-screen bg-background text-foreground">
+    <html lang="en" className="dark h-full">
+      <body className="antialiased h-full bg-[#0a0a0a] text-[#f0ece3] flex flex-col">
         <AppProvider>
-          <Navbar />
           <SidebarProvider>
-            <main className="flex-1 w-full">
-              {children}
-            </main>
+            <div className="flex flex-col h-full w-full">
+              <Navbar />
+              <main className="flex-1 flex flex-col overflow-hidden min-h-0">
+                {children}
+              </main>
+            </div>
           </SidebarProvider>
         </AppProvider>
       </body>

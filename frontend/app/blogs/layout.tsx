@@ -7,12 +7,10 @@ interface BlogsLayoutProps {
 
 const BlogsLayout: React.FC<BlogsLayoutProps> = ({ children }) => {
   return (
-    <div className="flex w-full">
+    <div className="flex flex-1 overflow-hidden bg-[#0a0a0a] min-h-0">
       <SideBar />
-      <main className="flex-1 transition-all duration-300">
-        <div className="w-full min-h-[calc(100vh-65px)]">
-          {children}
-        </div>
+      <main className="flex-1 overflow-y-auto">
+        {children}
       </main>
     </div>
   )
